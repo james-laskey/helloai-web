@@ -63,22 +63,29 @@ export const LearningScreen = ({
   /* ---------- Flashcard data loaders ---------- */
 
   const fetchPreviousFlashcardSets = async () => {
-    setLoadingPrevious(true);
-    try {
-      const result = await learningApi.getPreviousFlashcardSets({
-        userId: userPreferences?.id || 'anonymous',
-        topicId: selectedTopic.id,
-        language: selectedLanguage,
-      });
-      if (result && result.sets) {
-        setPreviousFlashcardSets(result.sets);
-      }
-    } catch (error) {
-      console.error('Error fetching previous flashcard sets:', error);
-    } finally {
-      setLoadingPrevious(false);
+  console.log('fetchPreviousFlashcardSets called with:', {
+    userId,
+    topicId: selectedTopic?.id,
+    language: selectedLanguage,
+  });
+
+  setLoadingPrevious(true);
+  try {
+    const result = await learningApi.getPreviousFlashcardSets({
+      userId,
+      topicId: selectedTopic.id,
+      language: selectedLanguage,
+    });
+    console.log('fetchPreviousFlashcardSets response:', result);
+    if (result && result.sets) {
+      setPreviousFlashcardSets(result.sets);
     }
-  };
+  } catch (error) {
+    console.error('Error fetching previous flashcard sets:', error);
+  } finally {
+    setLoadingPrevious(false);
+  }
+};
 
   /* ---------- Quiz data loaders ---------- */
 
@@ -86,7 +93,7 @@ export const LearningScreen = ({
     setLoadingPrevious(true);
     try {
       const result = await learningApi.getPreviousQuizAttempts({
-        userId: userPreferences?.id || 'anonymous',
+        userId: userId,
         topicId: selectedTopic.id,
         language: selectedLanguage,
       });
@@ -131,7 +138,7 @@ export const LearningScreen = ({
     setLoading(true);
     try {
       const result = await learningApi.generateFlashcards({
-        userId: userPreferences?.id || 'anonymous',
+        userId: userId,
         topicId: selectedTopic.id,
         topicName: selectedTopic.name,
         language: selectedLanguage,
@@ -156,7 +163,7 @@ export const LearningScreen = ({
     setLoading(true);
     try {
       const result = await learningApi.generateQuiz({
-        userId: userPreferences?.id || 'anonymous',
+        userId: userId,
         topicId: selectedTopic.id,
         topicName: selectedTopic.name,
         language: selectedLanguage,
@@ -185,7 +192,7 @@ export const LearningScreen = ({
     try {
       await learningApi.submitQuiz({
         attemptId: quizAttemptId,
-        userId: userPreferences?.id || 'anonymous',
+        userId: userId,
         topicId: selectedTopic.id,
         answers: answers.map((a) => a.selected),
         timeSpent: 0,
@@ -205,7 +212,7 @@ export const LearningScreen = ({
     try {
       await learningApi.updateFlashcardMastery({
         setId: flashcardSetId,
-        userId: userPreferences?.id || 'anonymous',
+        userId: userId,
         topicId: selectedTopic.id,
         cardIndex,
         known,
@@ -227,7 +234,7 @@ export const LearningScreen = ({
   try {
     await learningApi.completeFlashcardSet({
       setId: flashcardSetId,
-      userId: userPreferences?.id || 'anonymous',
+      userId: userId,
       knownCount,
       totalCount,
     });
@@ -430,7 +437,7 @@ export const LearningScreen = ({
           topicId={selectedTopic?.id}
           userId={userId ?? userPreferences?.id}
           onSelectPreviousLesson={onSelectPreviousLesson}
-          
+
         />
       );
     }
@@ -519,7 +526,7 @@ export const LearningScreen = ({
             onSubmit={submitQuizResults}
             onComplete={handleQuizComplete}
             attemptId={quizAttemptId}
-            userId={userPreferences?.id}
+            userId={userId}
             topicId={selectedTopic.id}
           />
         );

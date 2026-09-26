@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ReadingLesson } from '../components/ReadingLesson';
+import { ReadingLesson } from '../components/reading-lessons/ReadingLesson';
 import { FlashcardComponent } from '../components/FlashcardComponent';
 import { QuizComponent } from '../components/QuizComponent';
 import { learningApi } from '../services/learningApi';

@@ -251,4 +251,19 @@ savePreferences: async (preferences) => {
   }
   return await response.json();
 },
+// services/api.js — add to api object
+
+getLessonAttempts: async ({ userId, topicId, language }) => {
+  const response = await authenticatedFetch(
+    `${API_URL}/api/learning/lesson-attempts`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ userId, topicId, language }),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`API returned ${response.status}`);
+  }
+  return await response.json();
+},
 };

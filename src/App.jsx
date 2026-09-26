@@ -335,9 +335,24 @@ const App = () => {
   };
 
   const handleRetryLesson = () => {
-    if (pendingLessonConfig) {
-      handleGenerateLesson(pendingLessonConfig);
+      if (pendingLessonConfig) {
+        handleGenerateLesson(pendingLessonConfig);
+      }
+    };
+
+    const handleSelectPreviousLesson = (attempt) => {
+    if (!attempt?.lesson) {
+      console.warn('Selected attempt has no lesson payload');
+      return;
     }
+
+    setLesson({
+      ...attempt.lesson,
+      lessonId: attempt.lessonId,
+      // Mark that this is a replay so onComplete can choose to skip re-save
+      isReplay: true,
+      previousAttemptId: attempt.attemptId,
+    });
   };
 
   const handleLessonProgress = useCallback(
@@ -512,6 +527,7 @@ const App = () => {
       showStats={showStats}
       onToggleStats={toggleStats}
       onFetchStats={fetchStats}
+      onSelectPreviousLesson={handleSelectPreviousLesson}
     />
   );
 };

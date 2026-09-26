@@ -34,7 +34,8 @@ export const LearningScreen = ({
   showStats,
   onToggleStats,
   onFetchStats,
-  onLessonProgress
+  onLessonProgress,
+  onSelectPreviousLesson
 }) => {
   const [flashcards, setFlashcards] = useState(null);
   const [quiz, setQuiz] = useState(null);
@@ -424,6 +425,9 @@ export const LearningScreen = ({
           generationError={lessonError}
           onRetry={onRetryLesson}
           onProgress={onLessonProgress}
+          topicId={selectedTopic?.id}
+          userId={userPreferences?.id}
+          onSelectPreviousLesson={onSelectPreviousLesson}
         />
       );
     }

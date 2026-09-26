@@ -39,7 +39,7 @@ import { ReactComponent as EmojiEvents } from '@material-design-icons/svg/filled
 import { ReactComponent as ExpandLess } from '@material-design-icons/svg/filled/expand_less.svg';
 import { ReactComponent as ExpandMore } from '@material-design-icons/svg/filled/expand_more.svg';
 import { ReactComponent as Close } from '@material-design-icons/svg/filled/close.svg';
-
+import { ReactComponent as History } from '@material-design-icons/svg/filled/history.svg';
 // Name-based lookup
 export const ICONS = {
   Chat,
@@ -79,6 +79,7 @@ export const ICONS = {
   ExpandLess,
   ExpandMore,
   Close,
+  History
 };
 
 /**

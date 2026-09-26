@@ -36,6 +36,25 @@ export const ReadingLesson = ({
     }
   }, [lesson, isGenerating]);
 
+  const load = async () => {
+  setLoadingPrevious(true);
+  try {
+    const result = await api.getLessonAttempts({
+      userId,
+      topicId,
+      language,
+    });
+    console.log('Previous lessons fetched:', result);  // ← temp log
+    if (!cancelled) {
+      setPreviousAttempts(result?.attempts ?? []);
+    }
+  } catch (err) {
+    console.error('Failed to load previous lessons:', err);
+  } finally {
+    if (!cancelled) setLoadingPrevious(false);
+  }
+};
+
   const handleConfirm = () => {
     setStarted(true);
     onStart?.(config);

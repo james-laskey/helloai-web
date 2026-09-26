@@ -528,6 +528,9 @@ const App = () => {
       onToggleStats={toggleStats}
       onFetchStats={fetchStats}
       onSelectPreviousLesson={handleSelectPreviousLesson}
+      userPreferences={userPreferences}
+      selectedTopic={selectedTopic}
+      userId={userId} 
     />
   );
 };

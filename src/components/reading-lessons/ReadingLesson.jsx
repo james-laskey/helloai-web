@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { api } from '../../services/api';
 import { ReadingLessonSetup } from './ReadingLessonSetup';
 import { ReadingLessonPlayer } from './ReadingLessonPlayer';
 
 export const ReadingLesson = ({
   lesson,
   language,
+  userId,
+  topicId,
   speakText,
   stopSpeaking,
   isMuted,
@@ -14,6 +17,7 @@ export const ReadingLesson = ({
   onComplete,
   onProgress,
   onStart,
+  onSelectPreviousLesson,
   isGenerating,
   generationError,
   onRetry,
@@ -24,40 +28,60 @@ export const ReadingLesson = ({
     difficulty: 'adaptive',
   });
 
-  // If a lesson arrives, hide the setup screen
+  const [previousAttempts, setPreviousAttempts] = useState([]);
+  const [loadingPrevious, setLoadingPrevious] = useState(false);
+
+  // Fetch previous attempts when the component mounts or the topic changes
+  useEffect(() => {
+    if (!userId || !topicId) return;
+
+    let cancelled = false;
+
+    const load = async () => {
+      setLoadingPrevious(true);
+      try {
+        const result = await api.getLessonAttempts({
+          userId,
+          topicId,
+          language,
+        });
+        console.log('Previous lessons fetched:', result);
+        if (!cancelled) {
+          setPreviousAttempts(result?.attempts ?? []);
+        }
+      } catch (err) {
+        console.error('Failed to load previous lessons:', err);
+      } finally {
+        if (!cancelled) setLoadingPrevious(false);
+      }
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, topicId, language]);
+
+  // If a lesson arrives, show the player
   useEffect(() => {
     if (lesson) setStarted(true);
   }, [lesson]);
 
-  // Reset when the parent clears the lesson (starting over)
+  // Reset when the parent clears the lesson
   useEffect(() => {
     if (!lesson && !isGenerating) {
       setStarted(false);
     }
   }, [lesson, isGenerating]);
 
-  const load = async () => {
-  setLoadingPrevious(true);
-  try {
-    const result = await api.getLessonAttempts({
-      userId,
-      topicId,
-      language,
-    });
-    console.log('Previous lessons fetched:', result);  // ← temp log
-    if (!cancelled) {
-      setPreviousAttempts(result?.attempts ?? []);
-    }
-  } catch (err) {
-    console.error('Failed to load previous lessons:', err);
-  } finally {
-    if (!cancelled) setLoadingPrevious(false);
-  }
-};
-
   const handleConfirm = () => {
     setStarted(true);
     onStart?.(config);
+  };
+
+  const handleSelectPrevious = (attempt) => {
+    onSelectPreviousLesson?.(attempt);
   };
 
   if (!started) {
@@ -70,6 +94,9 @@ export const ReadingLesson = ({
         isGenerating={isGenerating}
         generationError={generationError}
         onRetry={onRetry}
+        previousAttempts={previousAttempts}
+        loadingPrevious={loadingPrevious}
+        onSelectPrevious={handleSelectPrevious}
       />
     );
   }

@@ -1,7 +1,11 @@
 // services/learningApi.js
 
-const LEARNING_API_URL = 'https://helloapi-five.vercel.app/api/learning';
-const AUTH_API_URL = 'https://helloapi-five.vercel.app/api/auth';
+const LEARNING_API_URL = `${
+  process.env.REACT_APP_API_URL || 'https://helloapi-five.vercel.app'
+}/api/learning`;
+const AUTH_API_URL = `${
+  process.env.REACT_APP_API_URL || 'https://helloapi-five.vercel.app'
+}/api/auth`;
 
 // Helper function to get token
 const getToken = () => {
@@ -182,6 +186,20 @@ export const learningApi = {
       throw error;
     }
   },
+
+completeFlashcardSet: async (data) => {
+  const response = await authenticatedFetch(
+    `${LEARNING_API_URL}/complete-flashcard-set`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`API returned ${response.status}`);
+  }
+  return await response.json();
+},
 
   getFlashcardSetById: async (id) => {
     try {

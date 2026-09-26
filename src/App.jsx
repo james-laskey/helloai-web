@@ -4,32 +4,56 @@ import { QuestionnaireScreen } from './screens/QuestionnaireScreen';
 import { TopicSelectionScreen } from './screens/TopicSelectionScreen';
 import { LearningScreen } from './screens/LearningScreen';
 import { api } from './services/api';
-import { getLanguageSpeechCode } from './utils/helpers';
-import { LANGUAGE_TOPICS } from './constants/languageTopics';
+
+const LANGUAGE_SPEECH_CODES = {
+  English: 'en-US',
+  Spanish: 'es-ES',
+  French: 'fr-FR',
+  German: 'de-DE',
+  Italian: 'it-IT',
+  Portuguese: 'pt-BR',
+  Japanese: 'ja-JP',
+  Korean: 'ko-KR',
+  Chinese: 'zh-CN',
+  Russian: 'ru-RU',
+  Arabic: 'ar-SA',
+  Hindi: 'hi-IN',
+};
+
+const PROGRESS_SAVE_INTERVAL_MS = 15_000;
 
 const App = () => {
+  // Auth + user
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [hasCompletedQuestionnaire, setHasCompletedQuestionnaire] = useState(false);
+  const [isHydrating, setIsHydrating] = useState(true);
+  const [showQuestionnaire, setShowQuestionnaire] = useState(false);
   const [userData, setUserData] = useState(null);
   const [userPreferences, setUserPreferences] = useState(null);
   const [userId, setUserId] = useState(null);
+
+  // Language + topic
   const [selectedLanguage, setSelectedLanguage] = useState('Spanish');
   const [selectedTopic, setSelectedTopic] = useState(null);
   const [isTopicSet, setIsTopicSet] = useState(false);
   const [learningMode, setLearningMode] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [inputText, setInputText] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+
+  // Reading lesson state
+  const [lesson, setLesson] = useState(null);
+  const [isLessonLoading, setIsLessonLoading] = useState(false);
+  const [lessonError, setLessonError] = useState(null);
+  const [pendingLessonConfig, setPendingLessonConfig] = useState(null);
+
+  // Audio state
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [callDuration, setCallDuration] = useState(0);
-  const [isCallActive, setIsCallActive] = useState(false);
-  const [sessionId, setSessionId] = useState(null);
+  const [activeSentenceIndex, setActiveSentenceIndex] = useState(null);
+
+  // Stats
   const [showStats, setShowStats] = useState(false);
   const [userStats, setUserStats] = useState(null);
 
-  const timerRef = useRef(null);
   const speechSynthRef = useRef(null);
+  const lastProgressSaveRef = useRef(0);
 
   // Initialize speech synthesis
   useEffect(() => {
@@ -38,217 +62,135 @@ const App = () => {
     }
   }, []);
 
-  // Load saved user data on startup
+  // Load saved user data on startup, then hydrate from backend
   useEffect(() => {
-    loadUserData();
+    bootstrap();
   }, []);
 
-  const loadUserData = async () => {
+  const bootstrap = async () => {
+    setIsHydrating(true);
     try {
       const savedUser = localStorage.getItem('userData');
       const savedPreferences = localStorage.getItem('userPreferences');
       const savedUserId = localStorage.getItem('userId');
 
-      if (savedUser && savedPreferences) {
-        const parsedUser = JSON.parse(savedUser);
+      if (!savedUser) {
+        // Not logged in
+        setIsHydrating(false);
+        return;
+      }
+
+      const parsedUser = JSON.parse(savedUser);
+      setUserData(parsedUser);
+      setUserId(savedUserId || parsedUser.id);
+      setIsAuthenticated(true);
+
+      // Optimistic state from cache so the UI is responsive
+      if (savedPreferences) {
         const parsedPrefs = JSON.parse(savedPreferences);
-        
-        setUserData(parsedUser);
         setUserPreferences(parsedPrefs);
-        setUserId(savedUserId || parsedUser.id);
-        setIsAuthenticated(true);
-        setHasCompletedQuestionnaire(true);
-        setSelectedLanguage(parsedPrefs.targetLanguage);
+        setSelectedLanguage(parsedPrefs.targetLanguage || 'Spanish');
+      }
+
+      // Now sync with backend. This is the source of truth.
+      const result = await hydrateUser();
+
+      // If the backend says the user has no preferences, show questionnaire
+      if (!result?.preferences && !savedPreferences) {
+        setShowQuestionnaire(true);
+      } else {
+        setShowQuestionnaire(false);
       }
     } catch (error) {
-      console.error('Error loading user data:', error);
+      console.error('Bootstrap error:', error);
+    } finally {
+      setIsHydrating(false);
+    }
+  };
+
+  /**
+   * Fetch the user + preferences from the backend, update state and cache.
+   * Returns { user, preferences } or null on failure.
+   */
+  const hydrateUser = async () => {
+    try {
+      const result = await api.fetchCurrentUser();
+
+      if (!result?.user) return null;
+
+      // Update user
+      setUserData(result.user);
+      setUserId(result.user.id);
+      localStorage.setItem('userData', JSON.stringify(result.user));
+      localStorage.setItem('userId', result.user.id);
+
+      // Update preferences
+      if (result.preferences) {
+        setUserPreferences(result.preferences);
+        setSelectedLanguage(result.preferences.targetLanguage || 'Spanish');
+        localStorage.setItem(
+          'userPreferences',
+          JSON.stringify(result.preferences)
+        );
+      }
+
+      return result;
+    } catch (err) {
+      console.error('hydrateUser failed:', err);
+      return null;
     }
   };
 
   const handleAuthComplete = async (user) => {
+    // 1. Store tokens and user from the auth response
     setUserData(user);
+    setUserId(user.id);
     setIsAuthenticated(true);
     localStorage.setItem('userData', JSON.stringify(user));
     localStorage.setItem('userId', user.id);
+
+    // 2. Fetch preferences from the backend. If the user has completed
+    //    the questionnaire before (even on another device), we get them
+    //    here and skip the questionnaire entirely.
+    const result = await hydrateUser();
+
+    if (result?.preferences) {
+      // Already onboarded — skip questionnaire
+      setShowQuestionnaire(false);
+      localStorage.setItem(
+        'userPreferences',
+        JSON.stringify(result.preferences)
+      );
+    } else {
+      // No preferences on the backend yet — show questionnaire
+      setShowQuestionnaire(true);
+    }
   };
 
   const handleQuestionnaireComplete = async (preferences) => {
+    // Persist to backend first
+    try {
+      await api.savePreferences(preferences);
+    } catch (err) {
+      console.error('Failed to save preferences to backend:', err);
+      // Continue anyway — cache locally so the app remains usable offline
+    }
+
+    // Update local state and cache
     setUserPreferences(preferences);
-    setHasCompletedQuestionnaire(true);
     setSelectedLanguage(preferences.targetLanguage);
+    setShowQuestionnaire(false);
     localStorage.setItem('userPreferences', JSON.stringify(preferences));
   };
 
-  const createPersonalizedIntroduction = useCallback((topic, language) => {
-    const languageIcon = LANGUAGE_TOPICS[language]?.icon || '📚';
-    const proficiencyLevel = userPreferences?.proficiencyLevel || 5;
-
-    if (proficiencyLevel <= 3) {
-      return `📖 ${languageIcon} Hello! Today we learn "${topic.name}". ${topic.description}. Example: "${topic.example}". Ready? Let's start!`;
-    } else if (proficiencyLevel <= 7) {
-      return `👋 ${languageIcon} Great choice! Today we'll explore "${topic.name}" - ${topic.description}. For example: "${topic.example}". Shall we begin?`;
-    } else {
-      return `✨ ${languageIcon} Excellent selection! Today's topic is "${topic.name}". ${topic.description}. Let me share an example: "${topic.example}". Ready to dive deeper?`;
-    }
-  }, [userPreferences]);
-
-  const speakText = useCallback(async (text) => {
-    if (isMuted || !speechSynthRef.current) return;
-
-    try {
-      speechSynthRef.current.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      
-      let rate = 0.9;
-      let pitch = 1.0;
-
-      if (userPreferences) {
-        if (userPreferences.proficiencyLevel <= 3) {
-          rate = 0.6;
-        } else if (userPreferences.proficiencyLevel <= 6) {
-          rate = 0.8;
-        } else {
-          rate = 0.9;
-        }
-
-        if (userPreferences.targetLanguage === 'Japanese' || userPreferences.targetLanguage === 'Korean') {
-          pitch = 1.05;
-        }
-      }
-
-      utterance.lang = getLanguageSpeechCode(selectedLanguage);
-      utterance.rate = rate;
-      utterance.pitch = pitch;
-
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-
-      speechSynthRef.current.speak(utterance);
-    } catch (error) {
-      console.error('Speech error:', error);
-      setIsSpeaking(false);
-    }
-  }, [isMuted, selectedLanguage, userPreferences]);
-
-  const stopSpeaking = useCallback(async () => {
-    if (speechSynthRef.current) {
-      speechSynthRef.current.cancel();
-    }
-    setIsSpeaking(false);
-  }, []);
-
-  const toggleMute = useCallback(() => {
-    setIsMuted(prev => {
-      if (!prev) stopSpeaking();
-      return !prev;
-    });
-  }, [stopSpeaking]);
-
-  const handleStartTutor = async (topic) => {
-    setSelectedTopic(topic);
-    setLearningMode('tutor');
-    setIsTopicSet(true);
-    setIsCallActive(true);
-    setIsLoading(true);
-
-    try {
-      const data = await api.startSession(
-        selectedLanguage,
-        userId,
-        topic.id,
-        topic.name,
-        topic.concept,
-        topic.example,
-        userPreferences
-      );
-
-      setSessionId(data.sessionId);
-
-      const introduction = data.message || createPersonalizedIntroduction(topic, selectedLanguage);
-
-      const tutorMessage = {
-        id: Date.now().toString(),
-        text: introduction,
-        isUser: false,
-        timestamp: Date.now(),
-      };
-
-      setMessages([tutorMessage]);
-      await speakText(introduction);
-    } catch (error) {
-      console.error('Error starting tutor session:', error);
-      const errorMessage = `I'm sorry, I'm having trouble starting the lesson on ${topic.name}. Let me try again.`;
-
-      const errorTutorMessage = {
-        id: Date.now().toString(),
-        text: errorMessage,
-        isUser: false,
-        timestamp: Date.now(),
-      };
-
-      setMessages([errorTutorMessage]);
-      await speakText(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleStartFlashcards = (topic) => {
-    setSelectedTopic(topic);
-    setLearningMode('flashcards');
-    setIsTopicSet(true);
-  };
-
-  const handleStartQuiz = (topic) => {
-    setSelectedTopic(topic);
-    setLearningMode('quiz');
-    setIsTopicSet(true);
-  };
-
-  const generateResponse = async (userInput) => {
-    setIsLoading(true);
-    try {
-      const conversationHistory = messages.map(msg => ({
-        role: msg.isUser ? 'user' : 'assistant',
-        content: msg.text
-      }));
-
-      const response = await api.sendMessage(
-        sessionId,
-        userId,
-        userInput,
-        selectedLanguage,
-        selectedTopic,
-        conversationHistory
-      );
-
-      const assistantMessage = {
-        id: Date.now().toString(),
-        text: response,
-        isUser: false,
-        timestamp: Date.now(),
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
-      await speakText(response);
-    } catch (error) {
-      console.error('Generation error:', error);
-      const errorMessage = "I didn't catch that. Can you try again?";
-      setMessages(prev => [...prev, {
-        id: Date.now().toString(),
-        text: errorMessage,
-        isUser: false,
-        timestamp: Date.now()
-      }]);
-      await speakText(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleUpdatePreferences = async (newPreferences) => {
+    // Persist to backend
+    try {
+      await api.savePreferences(newPreferences);
+    } catch (err) {
+      console.error('Failed to update preferences on backend:', err);
+    }
+
     setUserPreferences(newPreferences);
     localStorage.setItem('userPreferences', JSON.stringify(newPreferences));
     if (newPreferences.targetLanguage !== selectedLanguage) {
@@ -262,85 +204,268 @@ const App = () => {
     localStorage.removeItem('userId');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
-    
+
     setIsAuthenticated(false);
-    setHasCompletedQuestionnaire(false);
+    setShowQuestionnaire(false);
     setUserData(null);
     setUserPreferences(null);
+    setUserId(null);
     setSelectedLanguage('Spanish');
     setSelectedTopic(null);
     setIsTopicSet(false);
     setLearningMode(null);
-    setMessages([]);
-    setSessionId(null);
+    setLesson(null);
+    setLessonError(null);
+    setPendingLessonConfig(null);
+    lastProgressSaveRef.current = 0;
   };
 
-  // Timer effect
-  useEffect(() => {
-    if (isCallActive) {
-      timerRef.current = setInterval(() => setCallDuration(prev => prev + 1), 1000);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
-      setCallDuration(0);
+  /* ---------- Speech synthesis ---------- */
+
+  const speakText = useCallback(
+    (text, { onStart, onEnd, lang } = {}) => {
+      if (isMuted || !speechSynthRef.current || !text) return;
+
+      speechSynthRef.current.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+
+      let rate = 0.9;
+      let pitch = 1.0;
+
+      if (userPreferences) {
+        if (userPreferences.proficiencyLevel <= 3) rate = 0.6;
+        else if (userPreferences.proficiencyLevel <= 6) rate = 0.8;
+        else rate = 0.9;
+
+        if (
+          userPreferences.targetLanguage === 'Japanese' ||
+          userPreferences.targetLanguage === 'Korean'
+        ) {
+          pitch = 1.05;
+        }
+      }
+
+      utterance.lang =
+        lang || LANGUAGE_SPEECH_CODES[selectedLanguage] || 'en-US';
+      utterance.rate = rate;
+      utterance.pitch = pitch;
+
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+        onStart?.();
+      };
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        onEnd?.();
+      };
+      utterance.onerror = () => {
+        setIsSpeaking(false);
+        onEnd?.();
+      };
+
+      speechSynthRef.current.speak(utterance);
+    },
+    [isMuted, selectedLanguage, userPreferences]
+  );
+
+  const stopSpeaking = useCallback(() => {
+    if (speechSynthRef.current) {
+      speechSynthRef.current.cancel();
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [isCallActive]);
+    setIsSpeaking(false);
+    setActiveSentenceIndex(null);
+  }, []);
 
-  const fetchStats = async () => {
-    if (!userId) return;
-    console.log('Fetching stats for userId:', userId);
-    const stats = await api.fetchStats(userId);
-    console.log('Stats received:', stats);
-    setUserStats(stats);
+  const toggleMute = useCallback(() => {
+    setIsMuted((prev) => {
+      if (!prev) stopSpeaking();
+      return !prev;
+    });
+  }, [stopSpeaking]);
+
+  /* ---------- Reading lesson flow ---------- */
+
+  const handleStartReadingLesson = (topic) => {
+    setSelectedTopic(topic);
+    setLearningMode('reading');
+    setIsTopicSet(true);
+    setLesson(null);
+    setLessonError(null);
+    setPendingLessonConfig(null);
+    lastProgressSaveRef.current = 0;
   };
 
-  const handleSendMessage = async () => {
-    if (!inputText.trim() || isLoading) return;
+  const handleGenerateLesson = async ({ questionCount, difficulty }) => {
+    setPendingLessonConfig({ questionCount, difficulty });
+    setIsLessonLoading(true);
+    setLessonError(null);
+    setLesson(null);
+    lastProgressSaveRef.current = 0;
 
-    const userMessage = {
-      id: Date.now().toString(),
-      text: inputText,
-      isUser: true,
-      timestamp: Date.now(),
-    };
+    try {
+      const data = await api.generateLesson({
+        userId,
+        language: selectedLanguage,
+        topicId: selectedTopic.id,
+        topicName: selectedTopic.name,
+        topicConcept: selectedTopic.concept,
+        topicExample: selectedTopic.example,
+        userPreferences,
+        questionCount,
+        difficulty,
+      });
 
-    setMessages(prev => [...prev, userMessage]);
-    const currentInput = inputText;
-    setInputText('');
-    await generateResponse(currentInput);
+      if (!data || !data.lesson) {
+        throw new Error('No lesson returned');
+      }
+
+      setLesson({
+        ...data.lesson,
+        lessonId: data.lessonId,
+      });
+    } catch (err) {
+      console.error('Error generating lesson:', err);
+      setLessonError(
+        'Could not load the lesson. Please check your connection and try again.'
+      );
+    } finally {
+      setIsLessonLoading(false);
+    }
   };
 
-  const handleEndCall = async () => {
-    setIsCallActive(false);
-    console.log('Session ID:', sessionId);
-    console.log('User ID:', userId);
-    console.log('Call Duration:', callDuration);
-    await api.endSession(sessionId, userId);
-    stopSpeaking();
+  const handleRetryLesson = () => {
+    if (pendingLessonConfig) {
+      handleGenerateLesson(pendingLessonConfig);
+    }
+  };
+
+  const handleLessonProgress = useCallback(
+    (metrics) => {
+      const now = Date.now();
+      if (now - lastProgressSaveRef.current < PROGRESS_SAVE_INTERVAL_MS) {
+        return;
+      }
+      lastProgressSaveRef.current = now;
+
+      if (!lesson?.lessonId) return;
+
+      api
+        .saveLessonProgress({
+          lessonId: lesson.lessonId,
+          userId,
+          language: selectedLanguage,
+          topicId: selectedTopic?.id,
+          audioMetrics: {
+            sentencesPlayed: metrics.sentencesPlayed ?? 0,
+            wordsPlayed: metrics.wordsPlayed ?? 0,
+            replaysBySentence: metrics.replaysBySentence ?? [],
+            vocabTapsByWord: metrics.vocabTapsByWord ?? [],
+            playedAllCount: metrics.playedAllCount ?? 0,
+            firstInteractionAt: metrics.firstInteractionAt ?? undefined,
+            lastInteractionAt: metrics.lastInteractionAt ?? undefined,
+            timeSpentSeconds: metrics.timeSpentSeconds ?? 0,
+          },
+        })
+        .catch((err) =>
+          console.warn('Partial lesson save failed (non-fatal):', err)
+        );
+    },
+    [lesson?.lessonId, userId, selectedLanguage, selectedTopic?.id]
+  );
+
+  const handleLessonComplete = async (results) => {
+    try {
+      if (lesson?.lessonId) {
+        await api.submitLessonResults({
+          lessonId: lesson.lessonId,
+          userId,
+          language: selectedLanguage,
+          topicId: selectedTopic?.id,
+          answers: results.answers,
+          correctCount: results.correctCount,
+          totalQuestions: results.totalQuestions,
+          audioMetrics: results.audioMetrics ?? {
+            sentencesPlayed: results.sentencesPlayed ?? 0,
+            wordsPlayed: results.wordsPlayed ?? 0,
+          },
+          timeSpent: results.timeSpent,
+        });
+      }
+    } catch (err) {
+      console.error('Error submitting lesson results:', err);
+    }
     handleBackToTopics();
   };
+
+  /* ---------- Other modes ---------- */
+
+  const handleStartFlashcards = (topic) => {
+    setSelectedTopic(topic);
+    setLearningMode('flashcards');
+    setIsTopicSet(true);
+  };
+
+  const handleStartQuiz = (topic) => {
+    setSelectedTopic(topic);
+    setLearningMode('quiz');
+    setIsTopicSet(true);
+  };
+
+  /* ---------- Navigation ---------- */
 
   const handleBackToTopics = () => {
     setIsTopicSet(false);
     setSelectedTopic(null);
     setLearningMode(null);
-    setMessages([]);
-    setSessionId(null);
-    setInputText('');
-    setIsLoading(false);
-    setIsSpeaking(false);
+    setLesson(null);
+    setLessonError(null);
+    setPendingLessonConfig(null);
+    lastProgressSaveRef.current = 0;
+    stopSpeaking();
     fetchStats();
+  };
+
+  const fetchStats = async () => {
+    if (!userId) return;
+    try {
+      const stats = await api.fetchStats(userId);
+      setUserStats(stats);
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+    }
   };
 
   const toggleStats = () => setShowStats(!showStats);
 
-  // Screen routing based on user state
+  /* ---------- Routing ---------- */
+
+  // Show a splash while we hydrate from the backend
+  if (isHydrating && isAuthenticated) {
+    return (
+      <div
+        className="nb-container nb-flex nb-flex-center"
+        style={{ background: 'var(--nb-purple)', minHeight: '100vh' }}
+      >
+        <div className="nb-spinner" />
+        <p className="nb-mt-md" style={{ color: 'var(--nb-white)' }}>
+          Loading your account...
+        </p>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return <AuthScreen onAuthComplete={handleAuthComplete} />;
   }
 
-  if (!hasCompletedQuestionnaire) {
-    return <QuestionnaireScreen userData={userData} onComplete={handleQuestionnaireComplete} />;
+  if (showQuestionnaire) {
+    return (
+      <QuestionnaireScreen
+        userData={userData}
+        onComplete={handleQuestionnaireComplete}
+      />
+    );
   }
 
   if (!isTopicSet) {
@@ -348,7 +473,7 @@ const App = () => {
       <TopicSelectionScreen
         selectedLanguage={selectedLanguage}
         onSelectLanguage={setSelectedLanguage}
-        onStartTutor={handleStartTutor}
+        onStartReadingLesson={handleStartReadingLesson}
         onStartFlashcards={handleStartFlashcards}
         onStartQuiz={handleStartQuiz}
         userStats={userStats}
@@ -369,28 +494,24 @@ const App = () => {
       selectedTopic={selectedTopic}
       userPreferences={userPreferences}
       onBack={handleBackToTopics}
-      messages={messages}
-      isLoading={isLoading}
+      lesson={lesson}
+      isLessonLoading={isLessonLoading}
+      lessonError={lessonError}
+      onStartLesson={handleGenerateLesson}
+      onRetryLesson={handleRetryLesson}
+      onLessonComplete={handleLessonComplete}
+      onLessonProgress={handleLessonProgress}
+      speakText={speakText}
+      stopSpeaking={stopSpeaking}
       isSpeaking={isSpeaking}
       isMuted={isMuted}
-      callDuration={callDuration}
-      inputText={inputText}
-      onInputChange={setInputText}
-      onSendMessage={handleSendMessage}
-      onEndCall={handleEndCall}
       onToggleMute={toggleMute}
-      onStopSpeaking={stopSpeaking}
+      activeSentenceIndex={activeSentenceIndex}
+      setActiveSentenceIndex={setActiveSentenceIndex}
       userStats={userStats}
       showStats={showStats}
       onToggleStats={toggleStats}
       onFetchStats={fetchStats}
-      sessionId={sessionId}
-      setSessionId={setSessionId}
-      setIsTopicSet={setIsTopicSet}
-      setMessages={setMessages}
-      setSelectedTopic={setSelectedTopic}
-      speakText={speakText}
-      stopSpeaking={stopSpeaking}
     />
   );
 };

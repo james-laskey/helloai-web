@@ -1,34 +1,40 @@
 import React, { useState, useEffect } from 'react';
-import { CallScreen } from './CallScreen';
+import { ReadingLesson } from '../components/ReadingLesson';
 import { FlashcardComponent } from '../components/FlashcardComponent';
 import { QuizComponent } from '../components/QuizComponent';
 import { learningApi } from '../services/learningApi';
+import { MaterialIcon } from '../components/landing-page/icons';
 
 export const LearningScreen = ({
-  mode,
+  mode, // 'reading' | 'flashcards' | 'quiz'
   selectedLanguage,
   selectedTopic,
   userPreferences,
   onBack,
-  // CallScreen props
-  messages,
-  isLoading,
+
+  // Reading lesson props
+  lesson,
+  isLessonLoading,
+  lessonError,
+  onStartLesson,
+  onRetryLesson,
+  onLessonComplete,
+
+  // Audio props (shared with ReadingLesson)
+  speakText,
+  stopSpeaking,
   isSpeaking,
   isMuted,
-  callDuration,
-  inputText,
-  onInputChange,
-  onSendMessage,
-  onEndCall,
   onToggleMute,
-  onStopSpeaking,
+  activeSentenceIndex,
+  setActiveSentenceIndex,
+
+  // Stats props
   userStats,
   showStats,
   onToggleStats,
   onFetchStats,
-  sessionId,
-  speakText,
-  stopSpeaking
+  onLessonProgress
 }) => {
   const [flashcards, setFlashcards] = useState(null);
   const [quiz, setQuiz] = useState(null);
@@ -51,13 +57,15 @@ export const LearningScreen = ({
     }
   }, [mode]);
 
+  /* ---------- Flashcard data loaders ---------- */
+
   const fetchPreviousFlashcardSets = async () => {
     setLoadingPrevious(true);
     try {
       const result = await learningApi.getPreviousFlashcardSets({
         userId: userPreferences?.id || 'anonymous',
         topicId: selectedTopic.id,
-        language: selectedLanguage
+        language: selectedLanguage,
       });
       if (result && result.sets) {
         setPreviousFlashcardSets(result.sets);
@@ -69,13 +77,15 @@ export const LearningScreen = ({
     }
   };
 
+  /* ---------- Quiz data loaders ---------- */
+
   const fetchPreviousQuizAttempts = async () => {
     setLoadingPrevious(true);
     try {
       const result = await learningApi.getPreviousQuizAttempts({
         userId: userPreferences?.id || 'anonymous',
         topicId: selectedTopic.id,
-        language: selectedLanguage
+        language: selectedLanguage,
       });
       if (result && result.quizzes) {
         setPreviousQuizAttempts(result.quizzes);
@@ -86,6 +96,8 @@ export const LearningScreen = ({
       setLoadingPrevious(false);
     }
   };
+
+  /* ---------- Flashcard/quiz selection handlers ---------- */
 
   const handleUsePreviousFlashcardSet = (set) => {
     setFlashcards(set.cards);
@@ -110,6 +122,8 @@ export const LearningScreen = ({
     }
   };
 
+  /* ---------- Flashcard generation ---------- */
+
   const generateFlashcards = async () => {
     setLoading(true);
     try {
@@ -118,7 +132,7 @@ export const LearningScreen = ({
         topicId: selectedTopic.id,
         topicName: selectedTopic.name,
         language: selectedLanguage,
-        userPreferences
+        userPreferences,
       });
 
       if (result && result.flashcards) {
@@ -133,6 +147,8 @@ export const LearningScreen = ({
     }
   };
 
+  /* ---------- Quiz generation ---------- */
+
   const generateQuiz = async () => {
     setLoading(true);
     try {
@@ -142,7 +158,7 @@ export const LearningScreen = ({
         topicName: selectedTopic.name,
         language: selectedLanguage,
         userPreferences,
-        questionCount: 10
+        questionCount: 10,
       });
 
       if (result && result.quiz) {
@@ -157,6 +173,8 @@ export const LearningScreen = ({
     }
   };
 
+  /* ---------- Quiz submission ---------- */
+
   const submitQuizResults = async (answers, score, total) => {
     if (!quizAttemptId || submittedQuiz) return;
 
@@ -166,8 +184,8 @@ export const LearningScreen = ({
         attemptId: quizAttemptId,
         userId: userPreferences?.id || 'anonymous',
         topicId: selectedTopic.id,
-        answers: answers.map(a => a.selected),
-        timeSpent: 0
+        answers: answers.map((a) => a.selected),
+        timeSpent: 0,
       });
       setQuiz(null);
       fetchPreviousQuizAttempts();
@@ -175,6 +193,8 @@ export const LearningScreen = ({
       console.error('Error submitting quiz:', error);
     }
   };
+
+  /* ---------- Flashcard mastery + completion ---------- */
 
   const updateFlashcardMastery = async (cardIndex, known) => {
     if (!flashcardSetId || submittedFlashcards) return;
@@ -185,7 +205,7 @@ export const LearningScreen = ({
         userId: userPreferences?.id || 'anonymous',
         topicId: selectedTopic.id,
         cardIndex,
-        known
+        known,
       });
     } catch (error) {
       console.error('Error updating flashcard mastery:', error);
@@ -198,38 +218,55 @@ export const LearningScreen = ({
   };
 
   const submitFlashcardCompletion = async (knownCount, totalCount) => {
-    if (!flashcardSetId || submittedFlashcards) return;
+  if (!flashcardSetId || submittedFlashcards) return;
 
-    setSubmittedFlashcards(true);
-    try {
-      setFlashcards(null);
-      fetchPreviousFlashcardSets();
-    } catch (error) {
-      console.error('Error submitting flashcard completion:', error);
-    }
-  };
+  setSubmittedFlashcards(true);
+  try {
+    await learningApi.completeFlashcardSet({
+      setId: flashcardSetId,
+      userId: userPreferences?.id || 'anonymous',
+      knownCount,
+      totalCount,
+    });
+    setFlashcards(null);
+    fetchPreviousFlashcardSets();
+  } catch (error) {
+    console.error('Error completing flashcard set:', error);
+  }
+};
+
+  /* ---------- Quiz completion ---------- */
 
   const handleQuizComplete = async (score, total, answers) => {
     await submitQuizResults(answers, score, total);
     onBack();
   };
 
+  /* ---------- Back navigation ---------- */
+
   const handleBack = () => {
-    if (mode === 'tutor') {
-      onEndCall();
-    }
+    // Stop any audio that might still be playing (reading lesson, etc.)
+    stopSpeaking?.();
     onBack();
   };
 
-  // Render dataset selector for flashcards
+  /* ---------- Flashcard dataset selector ---------- */
+
   const renderFlashcardDatasetSelector = () => {
     if (previousFlashcardSets.length === 0 && !loadingPrevious) {
       return (
         <div className="nb-card nb-text-center">
-          <h3 className="nb-heading nb-heading-md nb-mb-sm">No previous flashcards found</h3>
-          <p className="nb-text nb-text-muted nb-mb-lg">Generate your first set to get started!</p>
-          <button className="nb-button nb-button-primary" onClick={generateFlashcards}>
-            ➕ Generate New Flashcards
+          <h3 className="nb-heading nb-heading-md nb-mb-sm">
+            No previous flashcards found
+          </h3>
+          <p className="nb-text nb-text-muted nb-mb-lg">
+            Generate your first set to get started!
+          </p>
+          <button
+            className="nb-button nb-button-primary"
+            onClick={generateFlashcards}
+          >
+            Generate New Flashcards
           </button>
         </div>
       );
@@ -237,8 +274,12 @@ export const LearningScreen = ({
 
     return (
       <div>
-        <h2 className="nb-heading nb-heading-lg nb-mb-sm">Choose a Flashcard Set</h2>
-        <p className="nb-text nb-text-muted nb-mb-lg">Select from your previous sets or create a new one</p>
+        <h2 className="nb-heading nb-heading-lg nb-mb-sm">
+          Choose a Flashcard Set
+        </h2>
+        <p className="nb-text nb-text-muted nb-mb-lg">
+          Select from your previous sets or create a new one
+        </p>
 
         <div className="nb-flex nb-flex-col nb-gap-md nb-mb-lg">
           {previousFlashcardSets.map((item) => (
@@ -246,15 +287,27 @@ export const LearningScreen = ({
               key={item.id}
               onClick={() => handleUsePreviousFlashcardSet(item)}
               className="nb-card nb-card-hover"
-              style={{ textAlign: 'left', cursor: 'pointer', fontFamily: 'var(--nb-font)' }}
+              style={{
+                textAlign: 'left',
+                cursor: 'pointer',
+                fontFamily: 'var(--nb-font)',
+              }}
             >
               <div className="nb-flex nb-flex-between nb-mb-sm">
-                <span className="nb-heading nb-heading-sm">📇 {item.title || `${selectedTopic.name} Flashcards`}</span>
+                <span className="nb-heading nb-heading-sm">
+                  {item.title || `${selectedTopic.name} Flashcards`}
+                </span>
               </div>
               <div className="nb-flex nb-gap-md nb-mb-sm">
-                <span className="nb-text-sm">📇 {item.cards?.length || 0} cards</span>
-                <span className="nb-text-sm">📊 Mastery: {Math.round(item.masteryLevel || 0)}%</span>
-                <span className="nb-text-sm">🔄 Reviewed: {item.timesReviewed || 0} times</span>
+                <span className="nb-text-sm">
+                  {item.cards?.length || 0} cards
+                </span>
+                <span className="nb-text-sm">
+                  Mastery: {Math.round(item.masteryLevel || 0)}%
+                </span>
+                <span className="nb-text-sm">
+                  Reviewed: {item.timesReviewed || 0} times
+                </span>
               </div>
               <span className="nb-text-xs nb-text-muted">
                 Created: {new Date(item.createdAt).toLocaleDateString()}
@@ -263,22 +316,33 @@ export const LearningScreen = ({
           ))}
         </div>
 
-        <button className="nb-button nb-button-primary nb-button-full" onClick={handleGenerateNew}>
-          ➕ Generate New Set
+        <button
+          className="nb-button nb-button-primary nb-button-full"
+          onClick={handleGenerateNew}
+        >
+          Generate New Set
         </button>
       </div>
     );
   };
 
-  // Render dataset selector for quizzes
+  /* ---------- Quiz dataset selector ---------- */
+
   const renderQuizDatasetSelector = () => {
     if (previousQuizAttempts.length === 0 && !loadingPrevious) {
       return (
         <div className="nb-card nb-text-center">
-          <h3 className="nb-heading nb-heading-md nb-mb-sm">No previous quizzes found</h3>
-          <p className="nb-text nb-text-muted nb-mb-lg">Generate your first quiz to get started!</p>
-          <button className="nb-button nb-button-primary" onClick={generateQuiz}>
-            ➕ Generate New Quiz
+          <h3 className="nb-heading nb-heading-md nb-mb-sm">
+            No previous quizzes found
+          </h3>
+          <p className="nb-text nb-text-muted nb-mb-lg">
+            Generate your first quiz to get started!
+          </p>
+          <button
+            className="nb-button nb-button-primary"
+            onClick={generateQuiz}
+          >
+            Generate New Quiz
           </button>
         </div>
       );
@@ -287,7 +351,9 @@ export const LearningScreen = ({
     return (
       <div>
         <h2 className="nb-heading nb-heading-lg nb-mb-sm">Choose a Quiz</h2>
-        <p className="nb-text nb-text-muted nb-mb-lg">Select from your previous quizzes or create a new one</p>
+        <p className="nb-text nb-text-muted nb-mb-lg">
+          Select from your previous quizzes or create a new one
+        </p>
 
         <div className="nb-flex nb-flex-col nb-gap-md nb-mb-lg">
           {previousQuizAttempts.map((item) => (
@@ -295,17 +361,27 @@ export const LearningScreen = ({
               key={item.id}
               onClick={() => handleUsePreviousQuiz(item)}
               className="nb-card nb-card-hover"
-              style={{ textAlign: 'left', cursor: 'pointer', fontFamily: 'var(--nb-font)' }}
+              style={{
+                textAlign: 'left',
+                cursor: 'pointer',
+                fontFamily: 'var(--nb-font)',
+              }}
             >
               <div className="nb-flex nb-flex-between nb-mb-sm">
-                <span className="nb-heading nb-heading-sm">🎯 {item.title || `${selectedTopic.name} Quiz`}</span>
+                <span className="nb-heading nb-heading-sm">
+                  {item.title || `${selectedTopic.name} Quiz`}
+                </span>
               </div>
               <div className="nb-flex nb-gap-md nb-mb-sm">
-                <span className="nb-text-sm">📝 {item.totalQuestions || 0} questions</span>
+                <span className="nb-text-sm">
+                  {item.totalQuestions || 0} questions
+                </span>
                 {item.score !== null && (
-                  <span className="nb-text-sm">⭐ Score: {item.score}%</span>
+                  <span className="nb-text-sm">Score: {item.score}%</span>
                 )}
-                <span className="nb-text-sm">🎯 Correct: {item.correctCount || 0}</span>
+                <span className="nb-text-sm">
+                  Correct: {item.correctCount || 0}
+                </span>
               </div>
               <span className="nb-text-xs nb-text-muted">
                 {item.completedAt
@@ -316,39 +392,43 @@ export const LearningScreen = ({
           ))}
         </div>
 
-        <button className="nb-button nb-button-primary nb-button-full" onClick={handleGenerateNew}>
-          ➕ Generate New Quiz
+        <button
+          className="nb-button nb-button-primary nb-button-full"
+          onClick={handleGenerateNew}
+        >
+          Generate New Quiz
         </button>
       </div>
     );
   };
 
+  /* ---------- Content router ---------- */
+
   const renderContent = () => {
-    if (mode === 'tutor') {
+    /* ========== READING LESSON ========== */
+    if (mode === 'reading') {
       return (
-        <CallScreen
-          selectedLanguage={selectedLanguage}
-          selectedTopic={selectedTopic}
-          messages={messages}
-          isLoading={isLoading}
+        <ReadingLesson
+          lesson={lesson}
+          language={selectedLanguage}
+          speakText={speakText}
+          stopSpeaking={stopSpeaking}
           isSpeaking={isSpeaking}
           isMuted={isMuted}
-          callDuration={callDuration}
-          inputText={inputText}
-          onInputChange={onInputChange}
-          onSendMessage={onSendMessage}
-          onEndCall={handleBack}
           onToggleMute={onToggleMute}
-          onStopSpeaking={onStopSpeaking}
-          userStats={userStats}
-          showStats={showStats}
-          onToggleStats={onToggleStats}
-          onFetchStats={onFetchStats}
-          speakText={speakText}
+          activeSentenceIndex={activeSentenceIndex}
+          setActiveSentenceIndex={setActiveSentenceIndex}
+          onComplete={onLessonComplete}
+          onStart={onStartLesson}
+          isGenerating={isLessonLoading}
+          generationError={lessonError}
+          onRetry={onRetryLesson}
+          onProgress={onLessonProgress}
         />
       );
     }
 
+    /* ========== FLASHCARDS ========== */
     if (mode === 'flashcards') {
       if (!flashcards && !loading && !showDatasetSelector) {
         setShowDatasetSelector(true);
@@ -356,16 +436,24 @@ export const LearningScreen = ({
 
       if (showDatasetSelector && !flashcards) {
         return loadingPrevious ? (
-          <div className="nb-flex nb-flex-center" style={{ minHeight: '400px' }}>
+          <div
+            className="nb-flex nb-flex-center"
+            style={{ minHeight: '400px', flexDirection: 'column' }}
+          >
             <div className="nb-spinner" />
             <p className="nb-mt-md">Loading your flashcards...</p>
           </div>
-        ) : renderFlashcardDatasetSelector();
+        ) : (
+          renderFlashcardDatasetSelector()
+        );
       }
 
       if (loading) {
         return (
-          <div className="nb-flex nb-flex-center" style={{ minHeight: '400px', flexDirection: 'column' }}>
+          <div
+            className="nb-flex nb-flex-center"
+            style={{ minHeight: '400px', flexDirection: 'column' }}
+          >
             <div className="nb-spinner" />
             <p className="nb-mt-md">Generating flashcards...</p>
           </div>
@@ -385,6 +473,7 @@ export const LearningScreen = ({
       return null;
     }
 
+    /* ========== QUIZ ========== */
     if (mode === 'quiz') {
       if (!quiz && !loading && !showDatasetSelector) {
         setShowDatasetSelector(true);
@@ -392,16 +481,24 @@ export const LearningScreen = ({
 
       if (showDatasetSelector && !quiz) {
         return loadingPrevious ? (
-          <div className="nb-flex nb-flex-center" style={{ minHeight: '400px', flexDirection: 'column' }}>
+          <div
+            className="nb-flex nb-flex-center"
+            style={{ minHeight: '400px', flexDirection: 'column' }}
+          >
             <div className="nb-spinner" />
             <p className="nb-mt-md">Loading your quizzes...</p>
           </div>
-        ) : renderQuizDatasetSelector();
+        ) : (
+          renderQuizDatasetSelector()
+        );
       }
 
       if (loading) {
         return (
-          <div className="nb-flex nb-flex-center" style={{ minHeight: '400px', flexDirection: 'column' }}>
+          <div
+            className="nb-flex nb-flex-center"
+            style={{ minHeight: '400px', flexDirection: 'column' }}
+          >
             <div className="nb-spinner" />
             <p className="nb-mt-md">Generating quiz...</p>
           </div>
@@ -427,26 +524,45 @@ export const LearningScreen = ({
     return null;
   };
 
+  /* ---------- Header title based on mode ---------- */
+
+  const headerTitle =
+    mode === 'reading'
+      ? 'Reading Lesson'
+      : mode === 'flashcards'
+      ? 'Flashcards'
+      : mode === 'quiz'
+      ? 'Quiz'
+      : 'Learning';
+
   return (
     <div className="nb-container" style={{ background: 'var(--nb-purple)' }}>
       {/* Header */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 'var(--nb-space-md) var(--nb-space-lg)',
-        background: 'var(--nb-white)',
-        borderBottom: 'var(--nb-border)'
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: 'var(--nb-space-md) var(--nb-space-lg)',
+          background: 'var(--nb-white)',
+          borderBottom: 'var(--nb-border)',
+        }}
+      >
         <button
           onClick={handleBack}
           className="nb-button"
-          style={{ padding: 'var(--nb-space-sm) var(--nb-space-md)' }}
+          style={{
+            padding: 'var(--nb-space-sm) var(--nb-space-md)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
         >
-          ← Back
+          <MaterialIcon name="ArrowBack" size={18} color="var(--nb-black)" />
+          Back
         </button>
         <h1 className="nb-heading nb-heading-md" style={{ margin: 0 }}>
-          {mode === 'tutor' ? '🎓 AI Tutor' : mode === 'flashcards' ? '📇 Flashcards' : '🎯 Quiz'}
+          {headerTitle}
         </h1>
         <div style={{ width: '100px' }} />
       </div>

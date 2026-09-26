@@ -1,6 +1,8 @@
 // services/authApi.js
 
-const API_URL = 'https://helloapi-five.vercel.app/api/auth';
+const API_URL = `${
+  process.env.REACT_APP_API_URL || 'https://helloapi-five.vercel.app'
+}/api/auth`;
 
 // Helper to store auth data
 const storeAuthData = (accessToken, refreshToken, user) => {

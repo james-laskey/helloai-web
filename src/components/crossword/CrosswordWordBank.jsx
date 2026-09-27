@@ -1,13 +1,19 @@
 import React from 'react';
 import { MaterialIcon } from '../landing-page/icons';
 
-export const CrosswordWordBank = ({
-  words,
-  selectedWord,
-  onSelectWord,
-  placedWords = new Set(),   // words already placed correctly
-  disabled = false,
-}) => {
+export const CrosswordWordBank = ({ bank, selectedWord, onSelectWord }) => {
+  const entries = Object.entries(bank).sort(([a], [b]) => a.localeCompare(b));
+
+  if (entries.length === 0) {
+    return (
+      <div className="nb-card nb-text-center" style={{ background: 'var(--nb-lime)' }}>
+        <p className="nb-text" style={{ margin: 0, fontWeight: 700 }}>
+          All words placed. Puzzle complete.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="nb-card" style={{ background: 'var(--nb-white)' }}>
       <div className="nb-flex nb-flex-center nb-gap-sm nb-mb-md">
@@ -19,47 +25,52 @@ export const CrosswordWordBank = ({
           className="nb-badge"
           style={{ background: 'var(--nb-cyan)', marginLeft: 'auto' }}
         >
-          {words.length} words
+          {entries.reduce((sum, [, count]) => sum + count, 0)} words
         </span>
       </div>
 
-      <div
-        className="nb-flex nb-gap-sm nb-flex-wrap"
-        style={{ alignItems: 'flex-start' }}
-      >
-        {words.map((word) => {
+      <div className="nb-flex nb-gap-sm nb-flex-wrap">
+        {entries.map(([word, count]) => {
           const isSelected = selectedWord === word;
-          const isPlaced = placedWords.has(word);
-
-          let bg = 'var(--nb-white)';
-          if (isSelected) bg = 'var(--nb-yellow)';
-          else if (isPlaced) bg = 'var(--nb-lime)';
-
           return (
             <button
               key={word}
-              onClick={() => !disabled && onSelectWord(isSelected ? null : word)}
-              disabled={disabled}
+              onClick={() => onSelectWord(word)}
               className="nb-button"
               style={{
-                background: bg,
+                background: isSelected ? 'var(--nb-yellow)' : 'var(--nb-white)',
                 padding: 'var(--nb-space-sm) var(--nb-space-md)',
                 fontWeight: 700,
-                opacity: isPlaced && !isSelected ? 0.6 : 1,
-                cursor: disabled ? 'not-allowed' : 'pointer',
                 minWidth: 'auto',
-                textDecoration: isPlaced ? 'line-through' : 'none',
+                position: 'relative',
               }}
             >
               {word}
+              {count > 1 && (
+                <span
+                  style={{
+                    marginLeft: '6px',
+                    fontSize: '0.75rem',
+                    color: 'var(--nb-orange, #f97316)',
+                  }}
+                >
+                  ×{count}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
-      {selectedWord && (
+      {selectedWord ? (
         <p className="nb-text-xs nb-text-muted nb-mt-md" style={{ margin: 0 }}>
-          Click a cell in the grid to place <strong>{selectedWord}</strong>.
+          Click a cell to place <strong>{selectedWord}</strong>, or click the
+          word again to deselect.
+        </p>
+      ) : (
+        <p className="nb-text-xs nb-text-muted nb-mt-md" style={{ margin: 0 }}>
+          Click a word, then click a cell to place it. Click a filled cell
+          with no word selected to remove it.
         </p>
       )}
     </div>

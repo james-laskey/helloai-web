@@ -1,7 +1,14 @@
 import React from 'react';
 import { MaterialIcon } from '../landing-page/icons';
 
-export const CrosswordClues = ({ clues, onSelectClue, selectedClueId }) => {
+export const CrosswordClues = ({
+  clues,
+  onSelectClue,
+  selectedClueId,
+  onRevealClue,
+  revealedClueIds = new Set(),
+  revealsDisabled = false,
+}) => {
   const across = clues.filter((c) => c.direction === 'across');
   const down = clues.filter((c) => c.direction === 'down');
 
@@ -16,40 +23,85 @@ export const CrosswordClues = ({ clues, onSelectClue, selectedClueId }) => {
       <div className="nb-flex nb-flex-col nb-gap-sm">
         {list.map((clue) => {
           const isSelected = selectedClueId === clue.id;
+          const isRevealed = revealedClueIds.has(clue.id);
           return (
-            <button
+            <div
               key={clue.id}
-              onClick={() => onSelectClue(clue)}
               className="nb-card nb-card-hover"
               style={{
-                textAlign: 'left',
-                cursor: 'pointer',
                 padding: 'var(--nb-space-sm)',
-                fontFamily: 'var(--nb-font)',
-                background: isSelected ? 'var(--nb-yellow)' : 'var(--nb-white)',
+                background: isRevealed
+                  ? 'var(--nb-orange)'
+                  : isSelected
+                  ? 'var(--nb-yellow)'
+                  : 'var(--nb-white)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--nb-space-sm)',
               }}
             >
-              <div className="nb-flex nb-gap-sm" style={{ alignItems: 'flex-start' }}>
-                <span
+              <button
+                onClick={() => onSelectClue(clue)}
+                style={{
+                  flex: 1,
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  padding: 0,
+                  border: 'none',
+                  background: 'transparent',
+                  fontFamily: 'var(--nb-font)',
+                }}
+              >
+                <div
+                  className="nb-flex nb-gap-sm"
+                  style={{ alignItems: 'flex-start' }}
+                >
+                  <span
+                    style={{
+                      fontWeight: 700,
+                      color: 'var(--nb-orange, #f97316)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {clue.number}.
+                  </span>
+                  <span className="nb-text-sm" style={{ lineHeight: 1.4 }}>
+                    {clue.clue}
+                  </span>
+                  <span
+                    className="nb-text-xs nb-text-muted"
+                    style={{ marginLeft: 'auto', flexShrink: 0 }}
+                  >
+                    ({clue.length})
+                  </span>
+                </div>
+              </button>
+
+              {!isRevealed && onRevealClue && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRevealClue(clue);
+                  }}
+                  disabled={revealsDisabled}
+                  className="nb-button"
+                  title="Reveal answer"
                   style={{
-                    fontWeight: 700,
-                    color: 'var(--nb-orange, #f97316)',
-                    flexShrink: 0,
+                    padding: '4px 8px',
+                    minWidth: 'auto',
+                    fontSize: '0.75rem',
+                    cursor: revealsDisabled ? 'not-allowed' : 'pointer',
+                    opacity: revealsDisabled ? 0.5 : 1,
                   }}
                 >
-                  {clue.number}.
-                </span>
-                <span className="nb-text-sm" style={{ lineHeight: 1.4 }}>
-                  {clue.clue}
-                </span>
-                <span
-                  className="nb-text-xs nb-text-muted"
-                  style={{ marginLeft: 'auto', flexShrink: 0 }}
-                >
-                  ({clue.length})
-                </span>
-              </div>
-            </button>
+                  <MaterialIcon name="Visibility" size={14} color="var(--nb-black)" />
+                </button>
+              )}
+
+              {isRevealed && (
+                <MaterialIcon name="CheckCircle" size={18} color="var(--nb-black)" />
+              )}
+            </div>
           );
         })}
       </div>

@@ -1,32 +1,28 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 
-const BASE_CELL_SIZE = 44;
-const MIN_CELL_SIZE = 24;
-const MAX_CELL_SIZE = 80;
+const BASE_CELL_SIZE = 64;
+const MIN_CELL_SIZE = 40;
+const MAX_CELL_SIZE = 120;
 
 export const CrosswordGrid = ({
   size,
   emptyMask,
   currentGrid,
   clues,
-  onCellChange,
-  onCellInput,
+  onCellClick,
   selectedCell,
   onSelectCell,
   prefilledKeys = new Set(),
-  isCharacterLanguage = false,
+  revealedKeys = new Set(),
+  hasSelectedWord = false,
 }) => {
   const [cellSize, setCellSize] = useState(BASE_CELL_SIZE);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const dragRef = useRef(null);
   const containerRef = useRef(null);
 
-  /* ---------- Bounding box of playable cells ---------- */
   const bounds = useMemo(() => {
-    let minR = size,
-      maxR = -1,
-      minC = size,
-      maxC = -1;
+    let minR = size, maxR = -1, minC = size, maxC = -1;
     for (let r = 0; r < size; r++) {
       for (let c = 0; c < size; c++) {
         if (emptyMask[r][c]) {
@@ -37,8 +33,7 @@ export const CrosswordGrid = ({
         }
       }
     }
-    if (maxR === -1)
-      return { minR: 0, maxR: size - 1, minC: 0, maxC: size - 1 };
+    if (maxR === -1) return { minR: 0, maxR: size - 1, minC: 0, maxC: size - 1 };
     return { minR, maxR, minC, maxC };
   }, [size, emptyMask]);
 
@@ -47,7 +42,6 @@ export const CrosswordGrid = ({
   const gridWidth = visibleCols * cellSize;
   const gridHeight = visibleRows * cellSize;
 
-  /* ---------- Cell numbers from clues ---------- */
   const cellNumbers = useMemo(() => {
     const map = new Map();
     for (const clue of clues) {
@@ -57,7 +51,6 @@ export const CrosswordGrid = ({
     return map;
   }, [clues]);
 
-  /* ---------- Which clues each cell belongs to ---------- */
   const cellToClues = useMemo(() => {
     const map = new Map();
     for (const clue of clues) {
@@ -72,8 +65,11 @@ export const CrosswordGrid = ({
     return map;
   }, [clues]);
 
-  /* ---------- Pan handlers ---------- */
   const handleMouseDown = (e) => {
+    const target = e.target;
+    if (target && target.closest && target.closest('[data-playable="true"]')) {
+      return;
+    }
     dragRef.current = {
       x: e.clientX,
       y: e.clientY,
@@ -94,11 +90,10 @@ export const CrosswordGrid = ({
     dragRef.current = null;
   };
 
-  /* ---------- Zoom ---------- */
   const handleWheel = (e) => {
     e.preventDefault();
     setCellSize((prev) => {
-      const next = prev + (e.deltaY < 0 ? 4 : -4);
+      const next = prev + (e.deltaY < 0 ? 6 : -6);
       return Math.max(MIN_CELL_SIZE, Math.min(MAX_CELL_SIZE, next));
     });
   };
@@ -110,19 +105,20 @@ export const CrosswordGrid = ({
     return () => el.removeEventListener('wheel', handleWheel);
   }, []);
 
-  /* ---------- Cell click ---------- */
   const handleCellClick = (r, c) => {
     if (!emptyMask[r][c]) return;
     onSelectCell({ row: r, col: c });
+    onCellClick?.(r, c);
   };
 
-  /* ---------- Grid positioning ---------- */
   const containerCenterX = (containerRef.current?.clientWidth || 800) / 2;
   const containerCenterY = 400;
   const baseX = containerCenterX - gridWidth / 2 + offset.x;
   const baseY = containerCenterY - gridHeight / 2 + offset.y;
 
-  /* ---------- Render ---------- */
+  const displayFontSize = Math.max(8, cellSize * 0.24);
+  const numberFontSize = Math.max(8, cellSize * 0.18);
+
   return (
     <div
       ref={containerRef}
@@ -132,7 +128,7 @@ export const CrosswordGrid = ({
       onMouseLeave={handleMouseUp}
       style={{
         width: '100%',
-        height: '500px',
+        height: '600px',
         background: 'var(--nb-dark-gray, #0f172a)',
         border: 'var(--nb-border)',
         overflow: 'hidden',
@@ -146,12 +142,14 @@ export const CrosswordGrid = ({
         return Array.from({ length: visibleCols }).map((_, ci) => {
           const c = bounds.minC + ci;
           const isPlayable = emptyMask[r][c];
-          const value = currentGrid?.[r]?.[c] ?? null;
+          const value =
+            (currentGrid && currentGrid[r] && currentGrid[r][c]) || null;
           const k = `${r},${c}`;
           const num = cellNumbers.get(k);
           const isSelected =
             selectedCell && selectedCell.row === r && selectedCell.col === c;
           const isPrefilled = prefilledKeys.has(k);
+          const isRevealed = revealedKeys.has(k);
           const belonging = cellToClues.get(k) || [];
           const isHighlighted =
             selectedCell &&
@@ -173,13 +171,21 @@ export const CrosswordGrid = ({
 
           let bg = 'var(--nb-white)';
           if (!isPlayable) bg = 'var(--nb-dark-gray, #1e293b)';
+          else if (isRevealed) bg = 'var(--nb-orange)';
           else if (isSelected) bg = 'var(--nb-yellow)';
           else if (isPrefilled) bg = 'var(--nb-cyan)';
           else if (isHighlighted) bg = '#cfe9ff';
 
+          const cellCursor = !isPlayable
+            ? 'default'
+            : hasSelectedWord
+            ? 'copy'
+            : 'pointer';
+
           return (
             <div
               key={k}
+              data-playable={isPlayable ? 'true' : 'false'}
               onClick={() => handleCellClick(r, c)}
               style={{
                 position: 'absolute',
@@ -188,12 +194,16 @@ export const CrosswordGrid = ({
                 width: cellSize,
                 height: cellSize,
                 background: bg,
-                border: '1px solid #334155',
+                border: isSelected
+                  ? '3px solid var(--nb-black)'
+                  : '1px solid #334155',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                cursor: isPlayable ? 'text' : 'default',
+                cursor: cellCursor,
                 color: 'var(--nb-black)',
+                overflow: 'hidden',
+                boxSizing: 'border-box',
               }}
             >
               {num && (
@@ -202,53 +212,38 @@ export const CrosswordGrid = ({
                     position: 'absolute',
                     top: 2,
                     left: 3,
-                    fontSize: cellSize * 0.22,
+                    fontSize: numberFontSize,
                     color: 'var(--nb-orange, #f97316)',
                     fontWeight: 700,
                     pointerEvents: 'none',
+                    lineHeight: 1,
                   }}
                 >
                   {num}
                 </span>
               )}
 
-              {isSelected && !isPrefilled ? (
-                <input
-                  key={`${r}-${c}`}
-                  type="text"
-                  value={value || ''}
-                  onChange={(e) => onCellInput?.(r, c, e.target.value)}
-                  autoFocus
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    border: 'none',
-                    background: 'transparent',
-                    textAlign: 'center',
-                    fontSize: cellSize * 0.5,
-                    fontWeight: 700,
-                    color: 'var(--nb-black)',
-                    fontFamily: 'var(--nb-font)',
-                    outline: 'none',
-                    padding: 0,
-                  }}
-                />
-              ) : (
-                <span
-                  style={{
-                    fontSize: cellSize * 0.5,
-                    fontWeight: 700,
-                  }}
-                >
-                  {value || ''}
-                </span>
-              )}
+              <span
+                title={value || ''}
+                style={{
+                  fontSize: displayFontSize,
+                  fontWeight: 700,
+                  lineHeight: 1.1,
+                  padding: '2px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  maxWidth: '100%',
+                  textAlign: 'center',
+                }}
+              >
+                {value || ''}
+              </span>
             </div>
           );
         });
       })}
 
-      {/* Zoom controls */}
       <div
         style={{
           position: 'absolute',

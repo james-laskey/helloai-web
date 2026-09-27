@@ -305,9 +305,9 @@ listCrosswords: async (payload) => {
   return await response.json();
 },
 
-fetchCrossword: async (puzzleId) => {
+fetchCrossword: async (puzzleId, userId) => {
   const response = await authenticatedFetch(
-    `${API_URL}/api/crossword/${puzzleId}`,
+    `${API_URL}/api/crossword/${puzzleId}?userId=${encodeURIComponent(userId)}`,
     { method: 'GET' }
   );
   if (!response.ok) throw new Error(`API returned ${response.status}`);

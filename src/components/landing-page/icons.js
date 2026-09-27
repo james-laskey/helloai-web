@@ -43,6 +43,10 @@ import { ReactComponent as History } from '@material-design-icons/svg/filled/his
 import { ReactComponent as GridView } from '@material-design-icons/svg/filled/grid_view.svg';
 import { ReactComponent as ArrowForward } from '@material-design-icons/svg/filled/arrow_forward.svg';
 import { ReactComponent as ArrowDownward } from '@material-design-icons/svg/filled/arrow_downward.svg';
+import { ReactComponent as Abc } from '@material-design-icons/svg/filled/abc.svg';
+import { ReactComponent as Visibility } from '@material-design-icons/svg/filled/visibility.svg';
+import { ReactComponent as CheckCircle } from '@material-design-icons/svg/filled/check_circle.svg';
+
 // Name-based lookup
 export const ICONS = {
   Chat,
@@ -85,7 +89,10 @@ export const ICONS = {
   History,
   GridView,
   ArrowForward,
-  ArrowDownward
+  ArrowDownward,
+  Abc,
+  Visibility,
+  CheckCircle
 };
 
 /**

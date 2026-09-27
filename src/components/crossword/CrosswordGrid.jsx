@@ -219,7 +219,6 @@ export const CrosswordGrid = ({
                   value={value || ''}
                   onChange={(e) => onCellInput?.(r, c, e.target.value)}
                   autoFocus
-                  maxLength={isCharacterLanguage ? undefined : 1}
                   style={{
                     width: '100%',
                     height: '100%',

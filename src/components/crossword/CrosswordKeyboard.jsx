@@ -1,10 +1,10 @@
 import React from 'react';
 
-export const CrosswordKeyboard = ({ availableChars, onCharSelect, onBackspace }) => {
+export const CrosswordKeyboard = ({ availableWords, onCharSelect, onBackspace }) => {
   return (
     <div className="nb-card" style={{ background: 'var(--nb-white)' }}>
       <div className="nb-flex nb-gap-sm nb-flex-wrap">
-        {availableChars.map((ch) => (
+        {availableWords.map((ch) => (
           <button
             key={ch}
             onClick={() => onCharSelect(ch)}

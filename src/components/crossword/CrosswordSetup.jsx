@@ -12,8 +12,8 @@ const DIFFICULTY_OPTIONS = [
 
 export const CrosswordSetup = ({
   userId,
-  topicName,
   topicId,
+  topicName,
   language,
   onStart,
   onResume,
@@ -29,6 +29,7 @@ export const CrosswordSetup = ({
 
   useEffect(() => {
     if (!userId || !topicId || !language) return;
+
     let cancelled = false;
 
     const load = async () => {
@@ -39,9 +40,10 @@ export const CrosswordSetup = ({
           language,
           topicId,
         });
+        console.log('Previous crosswords:', result);
         if (!cancelled) setPreviousPuzzles(result?.puzzles ?? []);
       } catch (err) {
-        console.error('Failed to list puzzles:', err);
+        console.error('Failed to list crosswords:', err);
       } finally {
         if (!cancelled) setLoadingPrevious(false);
       }
@@ -57,7 +59,6 @@ export const CrosswordSetup = ({
 
   return (
     <div style={{ maxWidth: '700px', margin: '0 auto' }}>
-      {/* Previous puzzles */}
       {(loadingPrevious || hasPrevious) && (
         <div className="nb-card nb-mb-lg" style={{ background: 'var(--nb-white)' }}>
           <div className="nb-flex nb-flex-center nb-gap-sm nb-mb-md">
@@ -66,7 +67,10 @@ export const CrosswordSetup = ({
               Previous Crosswords
             </h3>
             {hasPrevious && (
-              <span className="nb-badge" style={{ background: 'var(--nb-cyan)', marginLeft: 'auto' }}>
+              <span
+                className="nb-badge"
+                style={{ background: 'var(--nb-cyan)', marginLeft: 'auto' }}
+              >
                 {previousPuzzles.length}
               </span>
             )}
@@ -119,11 +123,6 @@ export const CrosswordSetup = ({
                     <span className="nb-text-xs nb-text-muted">
                       Created {new Date(p.createdAt).toLocaleDateString()}
                     </span>
-                    {p.lastPlayedAt && (
-                      <span className="nb-text-xs nb-text-muted">
-                        Last played {new Date(p.lastPlayedAt).toLocaleDateString()}
-                      </span>
-                    )}
                   </div>
                 </button>
               ))}
@@ -132,7 +131,6 @@ export const CrosswordSetup = ({
         </div>
       )}
 
-      {/* New puzzle setup */}
       <div className="nb-card" style={{ background: 'var(--nb-white)' }}>
         <div className="nb-flex nb-flex-center nb-gap-sm nb-mb-md">
           <MaterialIcon name="GridView" size={28} color="var(--nb-black)" />
@@ -220,7 +218,10 @@ export const CrosswordSetup = ({
         >
           {isGenerating ? (
             <span className="nb-flex nb-flex-center nb-gap-sm">
-              <span className="nb-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
+              <span
+                className="nb-spinner"
+                style={{ width: 18, height: 18, borderWidth: 2 }}
+              />
               Generating puzzle...
             </span>
           ) : (

@@ -29,9 +29,23 @@ export const CrosswordGame = ({
   const [selectedClueId, setSelectedClueId] = useState(null);
   const [isResuming, setIsResuming] = useState(false);
 
-
   const saveTimerRef = useRef(null);
 
+  const isCharacterLanguage = useMemo(
+    () => ['Chinese', 'Japanese', 'Korean'].includes(language),
+    [language]
+  );
+
+  /* ---------- Prefilled hint cells ---------- */
+
+  const prefilledKeys = useMemo(() => {
+    if (!puzzle?.prefilledCells) return new Set();
+    return new Set(
+      puzzle.prefilledCells.map((c) => `${c.row},${c.col}`)
+    );
+  }, [puzzle]);
+
+  /* ---------- Resume existing puzzle ---------- */
 
   const handleResume = async (existingPuzzleId) => {
     setIsResuming(true);
@@ -49,6 +63,8 @@ export const CrosswordGame = ({
 
       setCurrentGrid(grid);
       setPhase('playing');
+      setSelectedCell(null);
+      setSelectedClueId(null);
     } catch (err) {
       console.error('Failed to resume puzzle:', err);
       setError(err.message || 'Could not load puzzle.');
@@ -57,21 +73,7 @@ export const CrosswordGame = ({
     }
   };
 
-  const isCharacterLanguage = useMemo(
-    () => ['Chinese', 'Japanese', 'Korean'].includes(language),
-    [language]
-  );
-
-  /* ---------- Prefilled hint cells ---------- */
-
-  const prefilledKeys = useMemo(() => {
-    if (!puzzle?.prefilledCells) return new Set();
-    return new Set(
-      puzzle.prefilledCells.map((c) => `${c.row},${c.col}`)
-    );
-  }, [puzzle]);
-
-  /* ---------- Generate ---------- */
+  /* ---------- Generate new puzzle ---------- */
 
   const handleStart = async ({ theme, sentenceCount, difficulty }) => {
     setIsGenerating(true);
@@ -91,8 +93,6 @@ export const CrosswordGame = ({
       setPuzzleId(result.puzzleId);
       setPuzzle(result.puzzle);
 
-      // Prefer initialGrid (which includes prefilled hints) when provided.
-      // Fall back to an empty grid otherwise.
       const grid =
         result.puzzle.initialGrid ??
         result.puzzle.emptyMask.map((row) => row.map(() => null));
@@ -144,7 +144,7 @@ export const CrosswordGame = ({
     (row, col, value, { advance = false } = {}) => {
       const k = `${row},${col}`;
 
-      // Do not allow editing a prefilled hint cell
+      // Prefilled hint cells cannot be edited.
       if (prefilledKeys.has(k)) return;
 
       setCurrentGrid((prev) => {
@@ -160,24 +160,22 @@ export const CrosswordGame = ({
     [prefilledKeys, advanceToNextCell]
   );
 
-  // Called by CrosswordGrid's <input> when the user types
+  // Word-per-cell: keep the whole value. Lowercase to match solution.
   const handleCellInput = useCallback(
     (row, col, rawValue) => {
-      // For CJK, IME composition produces multi-character strings.
-      // Take only the final character so the grid stays one character
-      // per cell.
-      const chars = Array.from(rawValue || '');
-      const char = chars.length > 0 ? chars[chars.length - 1] : null;
-      handleCellChange(row, col, char, { advance: Boolean(char) });
+      const value = rawValue ? rawValue.trim().toLowerCase() : null;
+      handleCellChange(row, col, value || null, {
+        advance: Boolean(value),
+      });
     },
     [handleCellChange]
   );
 
   /* ---------- Character keyboard (for CJK) ---------- */
 
-  const handleCharSelect = (ch) => {
+  const handleWordSelect = (word) => {
     if (!selectedCell) return;
-    handleCellChange(selectedCell.row, selectedCell.col, ch, {
+    handleCellChange(selectedCell.row, selectedCell.col, word, {
       advance: true,
     });
   };
@@ -211,16 +209,14 @@ export const CrosswordGame = ({
     };
   }, [currentGrid, puzzleId, userId]);
 
-  /* ---------- Available characters ---------- */
+  /* ---------- Available words (word-per-cell) ---------- */
 
-  const availableChars = useMemo(() => {
+  const availableWords = useMemo(() => {
     if (!puzzle) return [];
     const set = new Set();
     for (const sentence of puzzle.sentences) {
       for (const w of sentence.words) {
-        // w is a word (phonetic) or a single character (CJK) depending on
-        // how the backend tokenizes. Array.from handles both.
-        for (const ch of Array.from(w)) set.add(ch);
+        set.add(w);
       }
     }
     return Array.from(set).sort();
@@ -231,11 +227,13 @@ export const CrosswordGame = ({
   if (phase === 'setup') {
     return (
       <CrosswordSetup
+        userId={userId}
+        topicId={topicId}
         topicName={topicName}
         language={language}
         onStart={handleStart}
-        isGenerating={isGenerating}
         onResume={handleResume}
+        isGenerating={isGenerating}
         error={error}
       />
     );
@@ -258,8 +256,8 @@ export const CrosswordGame = ({
 
       {isCharacterLanguage && (
         <CrosswordKeyboard
-          availableChars={availableChars}
-          onCharSelect={handleCharSelect}
+          availableWords={availableWords}
+          onWordSelect={handleWordSelect}
           onBackspace={handleBackspace}
         />
       )}

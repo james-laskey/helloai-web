@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 
 const BASE_CELL_SIZE = 44;
 const MIN_CELL_SIZE = 24;
@@ -10,17 +10,23 @@ export const CrosswordGrid = ({
   currentGrid,
   clues,
   onCellChange,
+  onCellInput,
   selectedCell,
   onSelectCell,
+  prefilledKeys = new Set(),
+  isCharacterLanguage = false,
 }) => {
   const [cellSize, setCellSize] = useState(BASE_CELL_SIZE);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const dragRef = useRef(null);
   const containerRef = useRef(null);
 
-  // Bounding box of playable cells
-  const bounds = React.useMemo(() => {
-    let minR = size, maxR = -1, minC = size, maxC = -1;
+  /* ---------- Bounding box of playable cells ---------- */
+  const bounds = useMemo(() => {
+    let minR = size,
+      maxR = -1,
+      minC = size,
+      maxC = -1;
     for (let r = 0; r < size; r++) {
       for (let c = 0; c < size; c++) {
         if (emptyMask[r][c]) {
@@ -31,7 +37,8 @@ export const CrosswordGrid = ({
         }
       }
     }
-    if (maxR === -1) return { minR: 0, maxR: size - 1, minC: 0, maxC: size - 1 };
+    if (maxR === -1)
+      return { minR: 0, maxR: size - 1, minC: 0, maxC: size - 1 };
     return { minR, maxR, minC, maxC };
   }, [size, emptyMask]);
 
@@ -40,8 +47,8 @@ export const CrosswordGrid = ({
   const gridWidth = visibleCols * cellSize;
   const gridHeight = visibleRows * cellSize;
 
-  // Cell numbers from clues
-  const cellNumbers = React.useMemo(() => {
+  /* ---------- Cell numbers from clues ---------- */
+  const cellNumbers = useMemo(() => {
     const map = new Map();
     for (const clue of clues) {
       const k = `${clue.startRow},${clue.startCol}`;
@@ -50,12 +57,11 @@ export const CrosswordGrid = ({
     return map;
   }, [clues]);
 
-  // Find which words a cell belongs to
-  const cellToClues = React.useMemo(() => {
+  /* ---------- Which clues each cell belongs to ---------- */
+  const cellToClues = useMemo(() => {
     const map = new Map();
     for (const clue of clues) {
-      const len = clue.length;
-      for (let i = 0; i < len; i++) {
+      for (let i = 0; i < clue.length; i++) {
         const r = clue.direction === 'down' ? clue.startRow + i : clue.startRow;
         const c = clue.direction === 'across' ? clue.startCol + i : clue.startCol;
         const k = `${r},${c}`;
@@ -66,10 +72,14 @@ export const CrosswordGrid = ({
     return map;
   }, [clues]);
 
-  /* ---------- Pan ---------- */
-
+  /* ---------- Pan handlers ---------- */
   const handleMouseDown = (e) => {
-    dragRef.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
+    dragRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      ox: offset.x,
+      oy: offset.y,
+    };
   };
 
   const handleMouseMove = (e) => {
@@ -85,7 +95,6 @@ export const CrosswordGrid = ({
   };
 
   /* ---------- Zoom ---------- */
-
   const handleWheel = (e) => {
     e.preventDefault();
     setCellSize((prev) => {
@@ -102,19 +111,18 @@ export const CrosswordGrid = ({
   }, []);
 
   /* ---------- Cell click ---------- */
-
   const handleCellClick = (r, c) => {
     if (!emptyMask[r][c]) return;
     onSelectCell({ row: r, col: c });
   };
 
-  /* ---------- Center on mount ---------- */
-
+  /* ---------- Grid positioning ---------- */
   const containerCenterX = (containerRef.current?.clientWidth || 800) / 2;
   const containerCenterY = 400;
   const baseX = containerCenterX - gridWidth / 2 + offset.x;
   const baseY = containerCenterY - gridHeight / 2 + offset.y;
 
+  /* ---------- Render ---------- */
   return (
     <div
       ref={containerRef}
@@ -138,11 +146,12 @@ export const CrosswordGrid = ({
         return Array.from({ length: visibleCols }).map((_, ci) => {
           const c = bounds.minC + ci;
           const isPlayable = emptyMask[r][c];
-          const value = currentGrid[r][c];
+          const value = currentGrid?.[r]?.[c] ?? null;
           const k = `${r},${c}`;
           const num = cellNumbers.get(k);
           const isSelected =
             selectedCell && selectedCell.row === r && selectedCell.col === c;
+          const isPrefilled = prefilledKeys.has(k);
           const belonging = cellToClues.get(k) || [];
           const isHighlighted =
             selectedCell &&
@@ -162,6 +171,12 @@ export const CrosswordGrid = ({
           const x = baseX + ci * cellSize;
           const y = baseY + ri * cellSize;
 
+          let bg = 'var(--nb-white)';
+          if (!isPlayable) bg = 'var(--nb-dark-gray, #1e293b)';
+          else if (isSelected) bg = 'var(--nb-yellow)';
+          else if (isPrefilled) bg = 'var(--nb-cyan)';
+          else if (isHighlighted) bg = '#cfe9ff';
+
           return (
             <div
               key={k}
@@ -172,21 +187,13 @@ export const CrosswordGrid = ({
                 top: y,
                 width: cellSize,
                 height: cellSize,
-                background: !isPlayable
-                  ? 'var(--nb-dark-gray, #1e293b)'
-                  : isSelected
-                  ? 'var(--nb-yellow)'
-                  : isHighlighted
-                  ? 'var(--nb-cyan)'
-                  : 'var(--nb-white)',
+                background: bg,
                 border: '1px solid #334155',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: cellSize * 0.5,
-                fontWeight: 700,
+                cursor: isPlayable ? 'text' : 'default',
                 color: 'var(--nb-black)',
-                cursor: isPlayable ? 'pointer' : 'default',
               }}
             >
               {num && (
@@ -198,12 +205,45 @@ export const CrosswordGrid = ({
                     fontSize: cellSize * 0.22,
                     color: 'var(--nb-orange, #f97316)',
                     fontWeight: 700,
+                    pointerEvents: 'none',
                   }}
                 >
                   {num}
                 </span>
               )}
-              {value || ''}
+
+              {isSelected && !isPrefilled ? (
+                <input
+                  key={`${r}-${c}`}
+                  type="text"
+                  value={value || ''}
+                  onChange={(e) => onCellInput?.(r, c, e.target.value)}
+                  autoFocus
+                  maxLength={isCharacterLanguage ? undefined : 1}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    border: 'none',
+                    background: 'transparent',
+                    textAlign: 'center',
+                    fontSize: cellSize * 0.5,
+                    fontWeight: 700,
+                    color: 'var(--nb-black)',
+                    fontFamily: 'var(--nb-font)',
+                    outline: 'none',
+                    padding: 0,
+                  }}
+                />
+              ) : (
+                <span
+                  style={{
+                    fontSize: cellSize * 0.5,
+                    fontWeight: 700,
+                  }}
+                >
+                  {value || ''}
+                </span>
+              )}
             </div>
           );
         });
@@ -217,6 +257,7 @@ export const CrosswordGrid = ({
           right: 12,
           display: 'flex',
           gap: 6,
+          zIndex: 10,
         }}
       >
         <button

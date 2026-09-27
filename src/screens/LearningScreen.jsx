@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { ReadingLesson } from '../components/reading-lessons/ReadingLesson';
 import { FlashcardComponent } from '../components/FlashcardComponent';
 import { QuizComponent } from '../components/QuizComponent';
+import { CrosswordGame } from '../components/crossword/CrosswordGame';
 import { learningApi } from '../services/learningApi';
 import { MaterialIcon } from '../components/landing-page/icons';
 
 export const LearningScreen = ({
-  mode, // 'reading' | 'flashcards' | 'quiz'
+  mode, // 'reading' | 'flashcards' | 'quiz' | 'crossword'
   selectedLanguage,
   selectedTopic,
   userPreferences,
@@ -36,8 +37,8 @@ export const LearningScreen = ({
   onFetchStats,
   onLessonProgress,
   onSelectPreviousLesson,
-  userId,       
-  topicId
+  userId,
+  topicId,
 }) => {
   const [flashcards, setFlashcards] = useState(null);
   const [quiz, setQuiz] = useState(null);
@@ -63,29 +64,22 @@ export const LearningScreen = ({
   /* ---------- Flashcard data loaders ---------- */
 
   const fetchPreviousFlashcardSets = async () => {
-  console.log('fetchPreviousFlashcardSets called with:', {
-    userId,
-    topicId: selectedTopic?.id,
-    language: selectedLanguage,
-  });
-
-  setLoadingPrevious(true);
-  try {
-    const result = await learningApi.getPreviousFlashcardSets({
-      userId,
-      topicId: selectedTopic.id,
-      language: selectedLanguage,
-    });
-    console.log('fetchPreviousFlashcardSets response:', result);
-    if (result && result.sets) {
-      setPreviousFlashcardSets(result.sets);
+    setLoadingPrevious(true);
+    try {
+      const result = await learningApi.getPreviousFlashcardSets({
+        userId,
+        topicId: selectedTopic.id,
+        language: selectedLanguage,
+      });
+      if (result && result.sets) {
+        setPreviousFlashcardSets(result.sets);
+      }
+    } catch (error) {
+      console.error('Error fetching previous flashcard sets:', error);
+    } finally {
+      setLoadingPrevious(false);
     }
-  } catch (error) {
-    console.error('Error fetching previous flashcard sets:', error);
-  } finally {
-    setLoadingPrevious(false);
-  }
-};
+  };
 
   /* ---------- Quiz data loaders ---------- */
 
@@ -93,7 +87,7 @@ export const LearningScreen = ({
     setLoadingPrevious(true);
     try {
       const result = await learningApi.getPreviousQuizAttempts({
-        userId: userId,
+        userId,
         topicId: selectedTopic.id,
         language: selectedLanguage,
       });
@@ -138,7 +132,7 @@ export const LearningScreen = ({
     setLoading(true);
     try {
       const result = await learningApi.generateFlashcards({
-        userId: userId,
+        userId,
         topicId: selectedTopic.id,
         topicName: selectedTopic.name,
         language: selectedLanguage,
@@ -163,7 +157,7 @@ export const LearningScreen = ({
     setLoading(true);
     try {
       const result = await learningApi.generateQuiz({
-        userId: userId,
+        userId,
         topicId: selectedTopic.id,
         topicName: selectedTopic.name,
         language: selectedLanguage,
@@ -192,7 +186,7 @@ export const LearningScreen = ({
     try {
       await learningApi.submitQuiz({
         attemptId: quizAttemptId,
-        userId: userId,
+        userId,
         topicId: selectedTopic.id,
         answers: answers.map((a) => a.selected),
         timeSpent: 0,
@@ -212,7 +206,7 @@ export const LearningScreen = ({
     try {
       await learningApi.updateFlashcardMastery({
         setId: flashcardSetId,
-        userId: userId,
+        userId,
         topicId: selectedTopic.id,
         cardIndex,
         known,
@@ -228,22 +222,22 @@ export const LearningScreen = ({
   };
 
   const submitFlashcardCompletion = async (knownCount, totalCount) => {
-  if (!flashcardSetId || submittedFlashcards) return;
+    if (!flashcardSetId || submittedFlashcards) return;
 
-  setSubmittedFlashcards(true);
-  try {
-    await learningApi.completeFlashcardSet({
-      setId: flashcardSetId,
-      userId: userId,
-      knownCount,
-      totalCount,
-    });
-    setFlashcards(null);
-    fetchPreviousFlashcardSets();
-  } catch (error) {
-    console.error('Error completing flashcard set:', error);
-  }
-};
+    setSubmittedFlashcards(true);
+    try {
+      await learningApi.completeFlashcardSet({
+        setId: flashcardSetId,
+        userId,
+        knownCount,
+        totalCount,
+      });
+      setFlashcards(null);
+      fetchPreviousFlashcardSets();
+    } catch (error) {
+      console.error('Error completing flashcard set:', error);
+    }
+  };
 
   /* ---------- Quiz completion ---------- */
 
@@ -255,7 +249,6 @@ export const LearningScreen = ({
   /* ---------- Back navigation ---------- */
 
   const handleBack = () => {
-    // Stop any audio that might still be playing (reading lesson, etc.)
     stopSpeaking?.();
     onBack();
   };
@@ -437,7 +430,6 @@ export const LearningScreen = ({
           topicId={selectedTopic?.id}
           userId={userId ?? userPreferences?.id}
           onSelectPreviousLesson={onSelectPreviousLesson}
-
         />
       );
     }
@@ -535,6 +527,20 @@ export const LearningScreen = ({
       return null;
     }
 
+    /* ========== CROSSWORD ========== */
+    if (mode === 'crossword') {
+      return (
+        <CrosswordGame
+          userId={userId}
+          language={selectedLanguage}
+          topicId={selectedTopic?.id}
+          topicName={selectedTopic?.name}
+          userPreferences={userPreferences}
+          onBack={handleBack}
+        />
+      );
+    }
+
     return null;
   };
 
@@ -547,6 +553,8 @@ export const LearningScreen = ({
       ? 'Flashcards'
       : mode === 'quiz'
       ? 'Quiz'
+      : mode === 'crossword'
+      ? 'Crossword'
       : 'Learning';
 
   return (

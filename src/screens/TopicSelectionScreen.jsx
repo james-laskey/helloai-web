@@ -8,9 +8,7 @@ import { MaterialIcon } from '../components/landing-page/icons';
 export const TopicSelectionScreen = ({
   selectedLanguage,
   onSelectLanguage,
-  onStartReadingLesson,
-  onStartFlashcards,
-  onStartQuiz,
+  onSelectTopic,
   userStats,
   showStats,
   onToggleStats,
@@ -40,14 +38,12 @@ export const TopicSelectionScreen = ({
 
   return (
     <div className="nb-container" style={{ background: 'var(--nb-purple)' }}>
-      {/* Stats Modal */}
       <StatsModal
         visible={showStats}
         onClose={onToggleStats}
         userStats={userStats}
       />
 
-      {/* Settings Modal */}
       <SettingsModal
         visible={showSettings}
         onClose={() => setShowSettings(false)}
@@ -218,9 +214,7 @@ export const TopicSelectionScreen = ({
             key={topic.id}
             topic={topic}
             languageColor={currentLanguageData?.color}
-            onStartReadingLesson={onStartReadingLesson}
-            onStartFlashcards={onStartFlashcards}
-            onStartQuiz={onStartQuiz}
+            onSelect={onSelectTopic}
           />
         ))}
       </div>

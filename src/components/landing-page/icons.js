@@ -40,6 +40,9 @@ import { ReactComponent as ExpandLess } from '@material-design-icons/svg/filled/
 import { ReactComponent as ExpandMore } from '@material-design-icons/svg/filled/expand_more.svg';
 import { ReactComponent as Close } from '@material-design-icons/svg/filled/close.svg';
 import { ReactComponent as History } from '@material-design-icons/svg/filled/history.svg';
+import { ReactComponent as GridView } from '@material-design-icons/svg/filled/grid_view.svg';
+import { ReactComponent as ArrowForward } from '@material-design-icons/svg/filled/arrow_forward.svg';
+import { ReactComponent as ArrowDownward } from '@material-design-icons/svg/filled/arrow_downward.svg';
 // Name-based lookup
 export const ICONS = {
   Chat,
@@ -79,7 +82,10 @@ export const ICONS = {
   ExpandLess,
   ExpandMore,
   Close,
-  History
+  History,
+  GridView,
+  ArrowForward,
+  ArrowDownward
 };
 
 /**

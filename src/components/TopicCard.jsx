@@ -1,15 +1,21 @@
 import React from 'react';
 import { MaterialIcon } from './landing-page/icons';
 
-export const TopicCard = ({
-  topic,
-  languageColor,
-  onStartReadingLesson,
-  onStartFlashcards,
-  onStartQuiz,
-}) => {
+export const TopicCard = ({ topic, languageColor, onSelect }) => {
   return (
-    <div className="nb-card" style={{ display: 'flex', flexDirection: 'column' }}>
+    <button
+      onClick={() => onSelect(topic)}
+      className="nb-card nb-card-hover"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        textAlign: 'left',
+        cursor: 'pointer',
+        fontFamily: 'var(--nb-font)',
+        width: '100%',
+        padding: 'var(--nb-space-md)',
+      }}
+    >
       {/* Header */}
       <div
         style={{
@@ -17,6 +23,7 @@ export const TopicCard = ({
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: 'var(--nb-space-md)',
+          width: '100%',
         }}
       >
         <span
@@ -47,6 +54,7 @@ export const TopicCard = ({
             padding: 'var(--nb-space-md)',
             border: '2px solid var(--nb-black)',
             marginBottom: 'var(--nb-space-md)',
+            width: '100%',
           }}
         >
           <div
@@ -61,7 +69,7 @@ export const TopicCard = ({
               marginBottom: 'var(--nb-space-xs)',
             }}
           >
-            
+            <MaterialIcon name="MenuBook" size={14} color="var(--nb-lime)" />
             Example
           </div>
           <p
@@ -76,63 +84,22 @@ export const TopicCard = ({
         </div>
       )}
 
-      {/* Action Buttons */}
+      {/* CTA hint */}
       <div
         style={{
-          display: 'flex',
-          gap: 'var(--nb-space-sm)',
           marginTop: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          gap: '6px',
+          fontWeight: 600,
+          fontSize: '0.875rem',
+          color: 'var(--nb-black)',
         }}
       >
-        <button
-          onClick={() => onStartReadingLesson(topic)}
-          className="nb-button nb-button-primary"
-          style={{
-            flex: 1,
-            padding: 'var(--nb-space-sm)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-          }}
-        >
-          <MaterialIcon name="MenuBook" size={16} color="var(--nb-black)" />
-          Read
-        </button>
-
-        <button
-          onClick={() => onStartFlashcards(topic)}
-          className="nb-button nb-button-secondary"
-          style={{
-            flex: 1,
-            padding: 'var(--nb-space-sm)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-          }}
-        >
-          <MaterialIcon name="Style" size={16} color="var(--nb-black)" />
-          Cards
-        </button>
-
-        <button
-          onClick={() => onStartQuiz(topic)}
-          className="nb-button"
-          style={{
-            flex: 1,
-            padding: 'var(--nb-space-sm)',
-            background: 'var(--nb-orange)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-          }}
-        >
-          <MaterialIcon name="Quiz" size={16} color="var(--nb-black)" />
-          Quiz
-        </button>
+        Choose a mode
+        <MaterialIcon name="ArrowForward" size={16} color="var(--nb-black)" />
       </div>
-    </div>
+    </button>
   );
 };

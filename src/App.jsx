@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AuthScreen } from './screens/AuthScreen';
 import { QuestionnaireScreen } from './screens/QuestionnaireScreen';
 import { TopicSelectionScreen } from './screens/TopicSelectionScreen';
+import { FeatureSelectionScreen } from './components/FeatureSelectionScreen';
 import { LearningScreen } from './screens/LearningScreen';
 import { api } from './services/api';
 
@@ -23,7 +24,7 @@ const LANGUAGE_SPEECH_CODES = {
 const PROGRESS_SAVE_INTERVAL_MS = 15_000;
 
 const App = () => {
-  // Auth + user
+  /* -------- Auth + user -------- */
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isHydrating, setIsHydrating] = useState(true);
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
@@ -31,38 +32,39 @@ const App = () => {
   const [userPreferences, setUserPreferences] = useState(null);
   const [userId, setUserId] = useState(null);
 
-  // Language + topic
+  /* -------- Language + navigation -------- */
   const [selectedLanguage, setSelectedLanguage] = useState('Spanish');
   const [selectedTopic, setSelectedTopic] = useState(null);
-  const [isTopicSet, setIsTopicSet] = useState(false);
+  const [isFeatureSelected, setIsFeatureSelected] = useState(false); // NEW: feature picker open
+  const [isTopicSet, setIsTopicSet] = useState(false);               // mode is running
   const [learningMode, setLearningMode] = useState(null);
 
-  // Reading lesson state
+  /* -------- Reading lesson state (unchanged) -------- */
   const [lesson, setLesson] = useState(null);
   const [isLessonLoading, setIsLessonLoading] = useState(false);
   const [lessonError, setLessonError] = useState(null);
   const [pendingLessonConfig, setPendingLessonConfig] = useState(null);
 
-  // Audio state
+  /* -------- Audio (unchanged) -------- */
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [activeSentenceIndex, setActiveSentenceIndex] = useState(null);
 
-  // Stats
+  /* -------- Stats (unchanged) -------- */
   const [showStats, setShowStats] = useState(false);
   const [userStats, setUserStats] = useState(null);
 
   const speechSynthRef = useRef(null);
   const lastProgressSaveRef = useRef(0);
 
-  // Initialize speech synthesis
+  /* -------- Speech synthesis (unchanged) -------- */
   useEffect(() => {
     if ('speechSynthesis' in window) {
       speechSynthRef.current = window.speechSynthesis;
     }
   }, []);
 
-  // Load saved user data on startup, then hydrate from backend
+  /* -------- Bootstrap (unchanged) -------- */
   useEffect(() => {
     bootstrap();
   }, []);
@@ -75,7 +77,6 @@ const App = () => {
       const savedUserId = localStorage.getItem('userId');
 
       if (!savedUser) {
-        // Not logged in
         setIsHydrating(false);
         return;
       }
@@ -85,17 +86,14 @@ const App = () => {
       setUserId(savedUserId || parsedUser.id);
       setIsAuthenticated(true);
 
-      // Optimistic state from cache so the UI is responsive
       if (savedPreferences) {
         const parsedPrefs = JSON.parse(savedPreferences);
         setUserPreferences(parsedPrefs);
         setSelectedLanguage(parsedPrefs.targetLanguage || 'Spanish');
       }
 
-      // Now sync with backend. This is the source of truth.
       const result = await hydrateUser();
 
-      // If the backend says the user has no preferences, show questionnaire
       if (!result?.preferences && !savedPreferences) {
         setShowQuestionnaire(true);
       } else {
@@ -108,30 +106,20 @@ const App = () => {
     }
   };
 
-  /**
-   * Fetch the user + preferences from the backend, update state and cache.
-   * Returns { user, preferences } or null on failure.
-   */
   const hydrateUser = async () => {
     try {
       const result = await api.fetchCurrentUser();
-
       if (!result?.user) return null;
 
-      // Update user
       setUserData(result.user);
       setUserId(result.user.id);
       localStorage.setItem('userData', JSON.stringify(result.user));
       localStorage.setItem('userId', result.user.id);
 
-      // Update preferences
       if (result.preferences) {
         setUserPreferences(result.preferences);
         setSelectedLanguage(result.preferences.targetLanguage || 'Spanish');
-        localStorage.setItem(
-          'userPreferences',
-          JSON.stringify(result.preferences)
-        );
+        localStorage.setItem('userPreferences', JSON.stringify(result.preferences));
       }
 
       return result;
@@ -142,41 +130,27 @@ const App = () => {
   };
 
   const handleAuthComplete = async (user) => {
-    // 1. Store tokens and user from the auth response
     setUserData(user);
     setUserId(user.id);
     setIsAuthenticated(true);
     localStorage.setItem('userData', JSON.stringify(user));
     localStorage.setItem('userId', user.id);
 
-    // 2. Fetch preferences from the backend. If the user has completed
-    //    the questionnaire before (even on another device), we get them
-    //    here and skip the questionnaire entirely.
     const result = await hydrateUser();
-
     if (result?.preferences) {
-      // Already onboarded — skip questionnaire
       setShowQuestionnaire(false);
-      localStorage.setItem(
-        'userPreferences',
-        JSON.stringify(result.preferences)
-      );
+      localStorage.setItem('userPreferences', JSON.stringify(result.preferences));
     } else {
-      // No preferences on the backend yet — show questionnaire
       setShowQuestionnaire(true);
     }
   };
 
   const handleQuestionnaireComplete = async (preferences) => {
-    // Persist to backend first
     try {
       await api.savePreferences(preferences);
     } catch (err) {
       console.error('Failed to save preferences to backend:', err);
-      // Continue anyway — cache locally so the app remains usable offline
     }
-
-    // Update local state and cache
     setUserPreferences(preferences);
     setSelectedLanguage(preferences.targetLanguage);
     setShowQuestionnaire(false);
@@ -184,13 +158,11 @@ const App = () => {
   };
 
   const handleUpdatePreferences = async (newPreferences) => {
-    // Persist to backend
     try {
       await api.savePreferences(newPreferences);
     } catch (err) {
       console.error('Failed to update preferences on backend:', err);
     }
-
     setUserPreferences(newPreferences);
     localStorage.setItem('userPreferences', JSON.stringify(newPreferences));
     if (newPreferences.targetLanguage !== selectedLanguage) {
@@ -212,6 +184,7 @@ const App = () => {
     setUserId(null);
     setSelectedLanguage('Spanish');
     setSelectedTopic(null);
+    setIsFeatureSelected(false);
     setIsTopicSet(false);
     setLearningMode(null);
     setLesson(null);
@@ -220,23 +193,19 @@ const App = () => {
     lastProgressSaveRef.current = 0;
   };
 
-  /* ---------- Speech synthesis ---------- */
-
+  /* -------- Speech (unchanged) -------- */
   const speakText = useCallback(
     (text, { onStart, onEnd, lang } = {}) => {
       if (isMuted || !speechSynthRef.current || !text) return;
-
       speechSynthRef.current.cancel();
 
       const utterance = new SpeechSynthesisUtterance(text);
-
       let rate = 0.9;
       let pitch = 1.0;
 
       if (userPreferences) {
         if (userPreferences.proficiencyLevel <= 3) rate = 0.6;
         else if (userPreferences.proficiencyLevel <= 6) rate = 0.8;
-        else rate = 0.9;
 
         if (
           userPreferences.targetLanguage === 'Japanese' ||
@@ -246,8 +215,7 @@ const App = () => {
         }
       }
 
-      utterance.lang =
-        lang || LANGUAGE_SPEECH_CODES[selectedLanguage] || 'en-US';
+      utterance.lang = lang || LANGUAGE_SPEECH_CODES[selectedLanguage] || 'en-US';
       utterance.rate = rate;
       utterance.pitch = pitch;
 
@@ -270,9 +238,7 @@ const App = () => {
   );
 
   const stopSpeaking = useCallback(() => {
-    if (speechSynthRef.current) {
-      speechSynthRef.current.cancel();
-    }
+    if (speechSynthRef.current) speechSynthRef.current.cancel();
     setIsSpeaking(false);
     setActiveSentenceIndex(null);
   }, []);
@@ -284,17 +250,49 @@ const App = () => {
     });
   }, [stopSpeaking]);
 
-  /* ---------- Reading lesson flow ---------- */
+  /* -------- Navigation: topic picker → feature picker → mode -------- */
 
-  const handleStartReadingLesson = (topic) => {
+  // Called when a topic card is clicked. Opens the feature selection screen.
+  const handleSelectTopic = (topic) => {
     setSelectedTopic(topic);
-    setLearningMode('reading');
+    setIsFeatureSelected(true);
+  };
+
+  // Called when a feature tile is clicked. Starts the mode.
+  const handleSelectFeature = (featureId) => {
+    setLearningMode(featureId);
+    setIsFeatureSelected(false);
     setIsTopicSet(true);
+  };
+
+  // Back from feature picker → topic picker
+  const handleBackToTopics = () => {
+    setIsFeatureSelected(false);
+    setSelectedTopic(null);
+    setLearningMode(null);
+    setIsTopicSet(false);
     setLesson(null);
     setLessonError(null);
     setPendingLessonConfig(null);
     lastProgressSaveRef.current = 0;
+    stopSpeaking();
+    fetchStats();
   };
+
+  // Back from a running mode → feature picker
+  const handleBackToFeatures = () => {
+    setIsTopicSet(false);
+    setLearningMode(null);
+    setLesson(null);
+    setLessonError(null);
+    setPendingLessonConfig(null);
+    lastProgressSaveRef.current = 0;
+    stopSpeaking();
+    fetchStats();
+    setIsFeatureSelected(true);
+  };
+
+  /* -------- Reading lesson flow (unchanged) -------- */
 
   const handleGenerateLesson = async ({ questionCount, difficulty }) => {
     setPendingLessonConfig({ questionCount, difficulty });
@@ -316,14 +314,8 @@ const App = () => {
         difficulty,
       });
 
-      if (!data || !data.lesson) {
-        throw new Error('No lesson returned');
-      }
-
-      setLesson({
-        ...data.lesson,
-        lessonId: data.lessonId,
-      });
+      if (!data || !data.lesson) throw new Error('No lesson returned');
+      setLesson({ ...data.lesson, lessonId: data.lessonId });
     } catch (err) {
       console.error('Error generating lesson:', err);
       setLessonError(
@@ -335,21 +327,14 @@ const App = () => {
   };
 
   const handleRetryLesson = () => {
-      if (pendingLessonConfig) {
-        handleGenerateLesson(pendingLessonConfig);
-      }
-    };
+    if (pendingLessonConfig) handleGenerateLesson(pendingLessonConfig);
+  };
 
-    const handleSelectPreviousLesson = (attempt) => {
-    if (!attempt?.lesson) {
-      console.warn('Selected attempt has no lesson payload');
-      return;
-    }
-
+  const handleSelectPreviousLesson = (attempt) => {
+    if (!attempt?.lesson) return;
     setLesson({
       ...attempt.lesson,
       lessonId: attempt.lessonId,
-      // Mark that this is a replay so onComplete can choose to skip re-save
       isReplay: true,
       previousAttemptId: attempt.attemptId,
     });
@@ -358,11 +343,8 @@ const App = () => {
   const handleLessonProgress = useCallback(
     (metrics) => {
       const now = Date.now();
-      if (now - lastProgressSaveRef.current < PROGRESS_SAVE_INTERVAL_MS) {
-        return;
-      }
+      if (now - lastProgressSaveRef.current < PROGRESS_SAVE_INTERVAL_MS) return;
       lastProgressSaveRef.current = now;
-
       if (!lesson?.lessonId) return;
 
       api
@@ -410,36 +392,10 @@ const App = () => {
     } catch (err) {
       console.error('Error submitting lesson results:', err);
     }
-    handleBackToTopics();
+    handleBackToFeatures();
   };
 
-  /* ---------- Other modes ---------- */
-
-  const handleStartFlashcards = (topic) => {
-    setSelectedTopic(topic);
-    setLearningMode('flashcards');
-    setIsTopicSet(true);
-  };
-
-  const handleStartQuiz = (topic) => {
-    setSelectedTopic(topic);
-    setLearningMode('quiz');
-    setIsTopicSet(true);
-  };
-
-  /* ---------- Navigation ---------- */
-
-  const handleBackToTopics = () => {
-    setIsTopicSet(false);
-    setSelectedTopic(null);
-    setLearningMode(null);
-    setLesson(null);
-    setLessonError(null);
-    setPendingLessonConfig(null);
-    lastProgressSaveRef.current = 0;
-    stopSpeaking();
-    fetchStats();
-  };
+  /* -------- Stats (unchanged) -------- */
 
   const fetchStats = async () => {
     if (!userId) return;
@@ -453,9 +409,8 @@ const App = () => {
 
   const toggleStats = () => setShowStats(!showStats);
 
-  /* ---------- Routing ---------- */
+  /* -------- Routing -------- */
 
-  // Show a splash while we hydrate from the backend
   if (isHydrating && isAuthenticated) {
     return (
       <div
@@ -483,54 +438,68 @@ const App = () => {
     );
   }
 
-  if (!isTopicSet) {
+  // 1. Mode is running → LearningScreen
+  if (isTopicSet) {
     return (
-      <TopicSelectionScreen
+      <LearningScreen
+        mode={learningMode}
         selectedLanguage={selectedLanguage}
-        onSelectLanguage={setSelectedLanguage}
-        onStartReadingLesson={handleStartReadingLesson}
-        onStartFlashcards={handleStartFlashcards}
-        onStartQuiz={handleStartQuiz}
+        selectedTopic={selectedTopic}
+        userPreferences={userPreferences}
+        onBack={handleBackToFeatures}
+        lesson={lesson}
+        isLessonLoading={isLessonLoading}
+        lessonError={lessonError}
+        onStartLesson={handleGenerateLesson}
+        onRetryLesson={handleRetryLesson}
+        onLessonComplete={handleLessonComplete}
+        onLessonProgress={handleLessonProgress}
+        speakText={speakText}
+        stopSpeaking={stopSpeaking}
+        isSpeaking={isSpeaking}
+        isMuted={isMuted}
+        onToggleMute={toggleMute}
+        activeSentenceIndex={activeSentenceIndex}
+        setActiveSentenceIndex={setActiveSentenceIndex}
         userStats={userStats}
         showStats={showStats}
         onToggleStats={toggleStats}
         onFetchStats={fetchStats}
-        userPreferences={userPreferences}
-        onUpdatePreferences={handleUpdatePreferences}
-        onLogout={handleLogout}
+        onSelectPreviousLesson={handleSelectPreviousLesson}
+        userId={userId}
       />
     );
   }
 
+  // 2. Feature picker is open → FeatureSelectionScreen
+  if (isFeatureSelected && selectedTopic) {
+    return (
+      <FeatureSelectionScreen
+        topic={selectedTopic}
+        language={selectedLanguage}
+        onSelectFeature={handleSelectFeature}
+        onBack={handleBackToTopics}
+        userStats={userStats}
+        showStats={showStats}
+        onToggleStats={toggleStats}
+        onFetchStats={fetchStats}
+      />
+    );
+  }
+
+  // 3. Default → TopicSelectionScreen
   return (
-    <LearningScreen
-      mode={learningMode}
+    <TopicSelectionScreen
       selectedLanguage={selectedLanguage}
-      selectedTopic={selectedTopic}
-      userPreferences={userPreferences}
-      onBack={handleBackToTopics}
-      lesson={lesson}
-      isLessonLoading={isLessonLoading}
-      lessonError={lessonError}
-      onStartLesson={handleGenerateLesson}
-      onRetryLesson={handleRetryLesson}
-      onLessonComplete={handleLessonComplete}
-      onLessonProgress={handleLessonProgress}
-      speakText={speakText}
-      stopSpeaking={stopSpeaking}
-      isSpeaking={isSpeaking}
-      isMuted={isMuted}
-      onToggleMute={toggleMute}
-      activeSentenceIndex={activeSentenceIndex}
-      setActiveSentenceIndex={setActiveSentenceIndex}
+      onSelectLanguage={setSelectedLanguage}
+      onSelectTopic={handleSelectTopic}
       userStats={userStats}
       showStats={showStats}
       onToggleStats={toggleStats}
       onFetchStats={fetchStats}
-      onSelectPreviousLesson={handleSelectPreviousLesson}
       userPreferences={userPreferences}
-      selectedTopic={selectedTopic}
-      userId={userId} 
+      onUpdatePreferences={handleUpdatePreferences}
+      onLogout={handleLogout}
     />
   );
 };

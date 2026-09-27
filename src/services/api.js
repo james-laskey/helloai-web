@@ -266,4 +266,34 @@ getLessonAttempts: async ({ userId, topicId, language }) => {
   }
   return await response.json();
 },
+
+generateCrossword: async (payload) => {
+  const response = await authenticatedFetch(
+    `${API_URL}/api/crossword/generate`,
+    { method: 'POST', body: JSON.stringify(payload) }
+  );
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`API returned ${response.status}: ${text}`);
+  }
+  return await response.json();
+},
+
+fetchCrossword: async (puzzleId) => {
+  const response = await authenticatedFetch(
+    `${API_URL}/api/crossword/${puzzleId}`,
+    { method: 'GET' }
+  );
+  if (!response.ok) throw new Error(`API returned ${response.status}`);
+  return await response.json();
+},
+
+saveCrosswordProgress: async (payload) => {
+  const response = await authenticatedFetch(
+    `${API_URL}/api/crossword/save-progress`,
+    { method: 'POST', body: JSON.stringify(payload) }
+  );
+  if (!response.ok) throw new Error(`API returned ${response.status}`);
+  return await response.json();
+},
 };

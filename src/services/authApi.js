@@ -85,15 +85,30 @@ export const authApi = {
     }
   },
 
-  /* ---------- Refresh token ---------- */
+  /* ---------- Current user ---------- */
 
-  refreshToken: async () => {
+  /**
+   * Fetches the authenticated user via the httpOnly cookie.
+   * Returns { success, user, preferences } on success.
+   * Refresh is handled automatically by the caller's fetch helper
+   * if the access cookie is expired.
+   */
+  me: async () => {
     try {
-      const { response } = await request('/refresh', { method: 'POST' });
-      return { success: response.ok };
+      const { response, data } = await request('/me', { method: 'GET' });
+
+      if (!response.ok) {
+        return { success: false, code: data?.code, message: data?.error };
+      }
+
+      return {
+        success: true,
+        user: data.user,
+        preferences: data.preferences ?? null,
+      };
     } catch (error) {
-      console.error('Token refresh error:', error);
-      return { success: false };
+      console.error('Me API error:', error);
+      return { success: false, message: 'Network error.' };
     }
   },
 
@@ -170,7 +185,10 @@ export const authApi = {
       });
 
       if (!response.ok) {
-        return { success: false, message: data?.error || 'Password change failed' };
+        return {
+          success: false,
+          message: data?.error || 'Password change failed',
+        };
       }
 
       return { success: true, message: 'Password changed successfully' };
@@ -199,8 +217,6 @@ export const authApi = {
       );
     }
 
-    // If the backend did not send the email but still returned 200,
-    // surface that to the caller.
     return {
       success: true,
       emailSent: data?.emailSent !== false,

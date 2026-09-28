@@ -53,6 +53,74 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+/* ========== Screenshot Marquee ========== */
+
+.nb-screenshot-track {
+  display: flex;
+  align-items: center;
+  gap: var(--nb-space-xl);
+  width: max-content;
+  animation: nb-marquee 20s linear infinite;
+  will-change: transform;
+}
+
+/* Pause the animation when the user hovers so they can read a caption */
+.nb-screenshot-track:hover {
+  animation-play-state: paused;
+}
+
+.nb-screenshot-slide {
+  flex-shrink: 0;
+  /* Every slide is the same width. The image inside keeps its
+     natural aspect ratio, so a phone screenshot is tall and narrow
+     while a MacBook screenshot is short and wide. */
+  width: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Small tablets */
+@media (max-width: 768px) {
+  .nb-screenshot-slide {
+    width: 240px;
+  }
+  .nb-screenshot-track {
+    gap: var(--nb-space-lg);
+    animation-duration: 15s;
+  }
+}
+
+/* Phones */
+@media (max-width: 480px) {
+  .nb-screenshot-slide {
+    width: 200px;
+  }
+  .nb-screenshot-track {
+    animation-duration: 15s;
+  }
+}
+
+@keyframes nb-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    /* The track contains two copies of the list, so shifting by
+       -50% lands exactly on the start of the second copy. */
+    transform: translateX(-50%);
+  }
+}
+
+/* Respect the user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .nb-screenshot-track {
+    animation: none;
+    /* Fall back to a horizontally scrollable strip. */
+    overflow-x: auto;
+  }
+}
+
 /* Base Neobrutalist Components */
 
 .nb-container {

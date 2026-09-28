@@ -106,11 +106,11 @@ export const HeroSection = () => {
                 key={badge.label}
                 className="nb-flex nb-flex-center nb-gap-sm"
               >
-                <span style={{ fontSize: '1.5rem' }}><MaterialIcon
+                <MaterialIcon
                   name={badge.icon}
-                  size={32}
+                  size={28}
                   color={badge.iconColor || 'var(--nb-black)'}
-                /></span>
+                />
                 <span className="nb-text-sm" style={{ fontWeight: '600' }}>
                   {badge.label}
                 </span>
@@ -128,21 +128,46 @@ export const HeroSection = () => {
   );
 };
 
-/* ---------- Hero Screenshot (image with placeholder fallback) ---------- */
-
+/* ---------- Hero Screenshot ----------
+ * When an image is present, it renders naked — no frame, no background,
+ * no shadow — and expands to fill its grid column. The image carries
+ * its own 4:3 aspect ratio.
+ *
+ * When the image is missing or fails to load, a cyan placeholder card
+ * is shown instead so the hero still has a visual anchor.
+ */
 const HeroScreenshot = () => {
   const [imageError, setImageError] = React.useState(false);
   const hasImage = HERO.image && !imageError;
 
+  if (hasImage) {
+    return (
+      <img
+        src={HERO.image}
+        alt={HERO.imageAlt}
+        onError={() => setImageError(true)}
+        style={{
+          display: 'block',
+          height: 'auto',
+          maxWidth: '100%',
+          // The image supplies its own transparency if it has any.
+          // No objectFit needed because the element is not clipped.
+        }}
+      />
+    );
+  }
+
+  // Placeholder fallback
   return (
     <div
       style={{
-        background: hasImage ? 'var(--nb-white)' : 'var(--nb-cyan)',
+        background: 'var(--nb-cyan)',
         border: 'var(--nb-border-thick)',
         boxShadow: 'var(--nb-shadow-lg)',
-        padding: hasImage ? 'var(--nb-space-sm)' : 'var(--nb-space-lg)',
-        aspectRatio: '9/16',
+        padding: 'var(--nb-space-lg)',
+        aspectRatio: '9 / 16',
         maxWidth: '350px',
+        width: '100%',
         margin: '0 auto',
         display: 'flex',
         flexDirection: 'column',
@@ -152,31 +177,14 @@ const HeroScreenshot = () => {
         overflow: 'hidden',
       }}
     >
-      {hasImage ? (
-        <img
-          src={HERO.image}
-          alt={HERO.imageAlt}
-          onError={() => setImageError(true)}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-          }}
-        />
-      ) : (
-        <>
-          <div
-            style={{ fontSize: '5rem', marginBottom: 'var(--nb-space-md)' }}
-          >
-            📱
-          </div>
-          <div className="nb-heading nb-heading-md nb-mb-sm">App Demo</div>
-          <p className="nb-text-sm nb-text-muted">Screenshot placeholder</p>
-          <p className="nb-text-xs nb-text-muted nb-mt-sm">
-            Add <code>hero.png</code> to <code>/images/screenshots/</code>
-          </p>
-        </>
-      )}
+      <div style={{ fontSize: '5rem', marginBottom: 'var(--nb-space-md)' }}>
+        📱
+      </div>
+      <div className="nb-heading nb-heading-md nb-mb-sm">App Demo</div>
+      <p className="nb-text-sm nb-text-muted">Screenshot placeholder</p>
+      <p className="nb-text-xs nb-text-muted nb-mt-sm">
+        Add <code>hero.png</code> to <code>/images/screenshots/</code>
+      </p>
     </div>
   );
 };

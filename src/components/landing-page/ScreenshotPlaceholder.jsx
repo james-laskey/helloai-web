@@ -1,14 +1,6 @@
 import React, { useState } from 'react';
+import { MaterialIcon } from './icons';
 
-/**
- * ScreenshotPlaceholder
- *
- * Renders an image if `image` is provided (and loads successfully),
- * otherwise falls back to a styled placeholder.
- *
- * To swap in real screenshots, just put the files in `public/images/screenshots/`
- * and the component will automatically pick them up.
- */
 export const ScreenshotPlaceholder = ({
   icon,
   title,
@@ -21,20 +13,23 @@ export const ScreenshotPlaceholder = ({
   const hasImage = image && !imageError;
 
   return (
-    <div>
+    <div style={{ width: '100%' }}>
       <div
         style={{
           background: hasImage ? 'var(--nb-white)' : color,
           border: 'var(--nb-border-thick)',
           boxShadow: 'var(--nb-shadow)',
           padding: hasImage ? 'var(--nb-space-sm)' : 'var(--nb-space-lg)',
-          aspectRatio: '9/16',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           textAlign: 'center',
           overflow: 'hidden',
+          // When the image is present, the aspect ratio comes from the
+          // image itself. When it is missing, fall back to a phone-ish
+          // 9:16 placeholder so the layout is not empty.
+          aspectRatio: hasImage ? undefined : '9 / 16',
         }}
       >
         {hasImage ? (
@@ -43,15 +38,28 @@ export const ScreenshotPlaceholder = ({
             alt={title}
             onError={() => setImageError(true)}
             style={{
+              display: 'block',
               width: '100%',
-              height: '100%',
-              objectFit: 'cover',
+              height: 'auto',
+              maxHeight: '520px',
+              objectFit: 'contain',
             }}
           />
         ) : (
           <>
-            <div style={{ fontSize: '4rem', marginBottom: 'var(--nb-space-md)' }}>
-              {icon}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 'var(--nb-space-md)',
+              }}
+            >
+              <MaterialIcon
+                name={icon}
+                size={64}
+                color={iconColor || 'var(--nb-black)'}
+              />
             </div>
             <div
               className="nb-heading nb-heading-sm nb-mb-sm"

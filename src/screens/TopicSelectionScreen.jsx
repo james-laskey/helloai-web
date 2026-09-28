@@ -159,7 +159,6 @@ export const TopicSelectionScreen = ({
               size={18}
               color="var(--nb-black)"
             />
-            Stats
           </button>
           <button
             onClick={() => setShowSettings(true)}
@@ -172,7 +171,6 @@ export const TopicSelectionScreen = ({
             }}
           >
             <MaterialIcon name="Settings" size={18} color="var(--nb-black)" />
-            Settings
           </button>
         </div>
       </div>

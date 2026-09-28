@@ -16,6 +16,8 @@ export const TopicSelectionScreen = ({
   userPreferences,
   onUpdatePreferences,
   onLogout,
+  user,
+  onDeleteAccount,
 }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
@@ -51,6 +53,8 @@ export const TopicSelectionScreen = ({
         selectedLanguage={selectedLanguage}
         onUpdatePreferences={onUpdatePreferences}
         onLogout={onLogout}
+        user={user}
+        onDeleteAccount={onDeleteAccount}
       />
 
       {/* Top Bar */}

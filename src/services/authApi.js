@@ -4,272 +4,207 @@ const API_URL = `${
   process.env.REACT_APP_API_URL || 'https://helloapi-five.vercel.app'
 }/api/auth`;
 
-// Helper to store auth data
-const storeAuthData = (accessToken, refreshToken, user) => {
-  try {
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
-    localStorage.setItem('userData', JSON.stringify(user));
-  } catch (error) {
-    console.error('Error storing auth data:', error);
-  }
-};
+import { csrfHeaders } from '../utils/csrf';
 
-// Helper to clear auth data
-const clearAuthData = () => {
+const credentials = 'include';
+
+async function request(path, options = {}) {
+  const method = options.method || 'GET';
+
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    method,
+    credentials,
+    headers: {
+      ...csrfHeaders(method),
+      ...(options.headers || {}),
+    },
+  });
+
+  let data = null;
   try {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('userData');
-  } catch (error) {
-    console.error('Error clearing auth data:', error);
+    data = await response.json();
+  } catch {
+    data = null;
   }
-};
+
+  return { response, data };
+}
 
 export const authApi = {
-  // User login
+  /* ---------- Login ---------- */
+
   login: async (email, password) => {
     try {
-      const response = await fetch(`${API_URL}/login`, {
+      const { response, data } = await request('/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
         return {
           success: false,
-          message: data.error || 'Login failed',
+          code: data?.code,
+          message: data?.error || data?.message || 'Login failed',
         };
       }
 
-      // Store tokens and user data
-      storeAuthData(data.accessToken, data.refreshToken, data.user);
-
-      return {
-        success: true,
-        user: data.user,
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-      };
+      return { success: true, user: data.user };
     } catch (error) {
       console.error('Login API error:', error);
-      return {
-        success: false,
-        message: 'Network error. Please check your connection.',
-      };
+      return { success: false, message: 'Network error.' };
     }
   },
 
-  // User signup
+  /* ---------- Signup ---------- */
+
   signup: async (name, email, password) => {
     try {
-      const response = await fetch(`${API_URL}/signup`, {
+      const { response, data } = await request('/signup', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ name, email, password }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
         return {
           success: false,
-          message: data.error || 'Signup failed',
+          code: data?.code,
+          message: data?.error || 'Signup failed',
         };
       }
-
-      // Store tokens and user data
-      storeAuthData(data.accessToken, data.refreshToken, data.user);
 
       return {
         success: true,
         user: data.user,
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
+        emailSent: data.emailSent !== false,
+        message: data.message,
       };
     } catch (error) {
       console.error('Signup API error:', error);
-      return {
-        success: false,
-        message: 'Network error. Please check your connection.',
-      };
+      return { success: false, message: 'Network error.' };
     }
   },
 
-  // Refresh access token
-  refreshToken: async (refreshToken) => {
+  /* ---------- Refresh token ---------- */
+
+  refreshToken: async () => {
     try {
-      const response = await fetch(`${API_URL}/refresh`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ refreshToken }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        return {
-          success: false,
-          message: data.error || 'Token refresh failed',
-        };
-      }
-
-      // Update only the access token in storage
-      localStorage.setItem('accessToken', data.accessToken);
-
-      return {
-        success: true,
-        accessToken: data.accessToken,
-      };
+      const { response } = await request('/refresh', { method: 'POST' });
+      return { success: response.ok };
     } catch (error) {
       console.error('Token refresh error:', error);
-      return {
-        success: false,
-        message: 'Network error',
-      };
+      return { success: false };
     }
   },
 
-  // Logout
-  logout: async (refreshToken) => {
+  /* ---------- Logout ---------- */
+
+  logout: async () => {
     try {
-      // Attempt to notify server about logout
-      await fetch(`${API_URL}/logout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${refreshToken}`
-        },
-        body: JSON.stringify({ refreshToken }),
-      });
-
-      // Clear local storage regardless of server response
-      clearAuthData();
-
-      return { success: true };
+      await request('/logout', { method: 'POST' });
     } catch (error) {
       console.error('Logout error:', error);
-      // Still clear local storage even if server request fails
-      clearAuthData();
-      return { success: true };
     }
+    return { success: true };
   },
 
-  // Get current user from storage
-  getCurrentUser: () => {
+  /* ---------- Email verification ---------- */
+
+  resendVerification: async (email) => {
     try {
-      const userData = localStorage.getItem('userData');
-      return userData ? JSON.parse(userData) : null;
+      const { response, data } = await request('/resend-verification', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      });
+      return {
+        success: response.ok,
+        message: data?.message || data?.error || 'Request completed',
+      };
     } catch (error) {
-      console.error('Error getting current user:', error);
-      return null;
+      console.error('Resend verification error:', error);
+      return { success: false, message: 'Network error' };
     }
   },
 
-  // Get access token from storage
-  getAccessToken: () => {
+  verifyEmail: async (token) => {
     try {
-      return localStorage.getItem('accessToken');
+      const { response, data } = await request('/verify-email', {
+        method: 'POST',
+        body: JSON.stringify({ token }),
+      });
+      return {
+        success: response.ok,
+        message: data?.message || data?.error || 'Request completed',
+      };
     } catch (error) {
-      console.error('Error getting access token:', error);
-      return null;
+      console.error('Verify email error:', error);
+      return { success: false, message: 'Network error' };
     }
   },
 
-  // Check if user is authenticated
-  isAuthenticated: () => {
-    try {
-      const token = localStorage.getItem('accessToken');
-      return !!token;
-    } catch (error) {
-      console.error('Error checking auth status:', error);
-      return false;
-    }
-  },
+  /* ---------- Profile ---------- */
 
-  // Update user profile (requires authentication)
   updateProfile: async (userData) => {
     try {
-      const token = localStorage.getItem('accessToken');
-
-      const response = await fetch(`${API_URL}/profile`, {
+      const { response, data } = await request('/profile', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify(userData),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        return {
-          success: false,
-          message: data.error || 'Update failed',
-        };
+        return { success: false, message: data?.error || 'Update failed' };
       }
 
-      // Update stored user data
-      const currentUser = authApi.getCurrentUser();
-      const updatedUser = { ...currentUser, ...data.user };
-      localStorage.setItem('userData', JSON.stringify(updatedUser));
-
-      return {
-        success: true,
-        user: updatedUser,
-      };
+      return { success: true, user: data.user };
     } catch (error) {
       console.error('Update profile error:', error);
-      return {
-        success: false,
-        message: 'Network error. Please check your connection.',
-      };
+      return { success: false, message: 'Network error.' };
     }
   },
 
-  // Change password (requires authentication)
   changePassword: async (currentPassword, newPassword) => {
     try {
-      const token = localStorage.getItem('accessToken');
-
-      const response = await fetch(`${API_URL}/change-password`, {
+      const { response, data } = await request('/change-password', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({ currentPassword, newPassword }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        return {
-          success: false,
-          message: data.error || 'Password change failed',
-        };
+        return { success: false, message: data?.error || 'Password change failed' };
       }
 
-      return {
-        success: true,
-        message: 'Password changed successfully',
-      };
+      return { success: true, message: 'Password changed successfully' };
     } catch (error) {
       console.error('Change password error:', error);
-      return {
-        success: false,
-        message: 'Network error. Please check your connection.',
-      };
+      return { success: false, message: 'Network error.' };
     }
-  }
+  },
+
+  /* ---------- Account deletion ---------- */
+
+  /**
+   * Step 1 of the deletion flow. The backend sends an email with a
+   * confirmation link. Nothing is deleted here.
+   * Returns { success, emailSent, message }.
+   * Throws on HTTP error so the modal can show the message.
+   */
+  requestAccountDeletion: async () => {
+    const { response, data } = await request('/request-account-deletion', {
+      method: 'POST',
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        data?.error || `Request failed with status ${response.status}`
+      );
+    }
+
+    // If the backend did not send the email but still returned 200,
+    // surface that to the caller.
+    return {
+      success: true,
+      emailSent: data?.emailSent !== false,
+      message: data?.message || 'Confirmation email sent.',
+    };
+  },
 };

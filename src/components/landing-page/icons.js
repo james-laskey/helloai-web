@@ -46,6 +46,8 @@ import { ReactComponent as ArrowDownward } from '@material-design-icons/svg/fill
 import { ReactComponent as Abc } from '@material-design-icons/svg/filled/abc.svg';
 import { ReactComponent as Visibility } from '@material-design-icons/svg/filled/visibility.svg';
 import { ReactComponent as CheckCircle } from '@material-design-icons/svg/filled/check_circle.svg';
+import { ReactComponent as SportsMartialArts } from '@material-design-icons/svg/filled/sports_martial_arts.svg';
+import { ReactComponent as Replay } from '@material-design-icons/svg/filled/replay.svg';
 
 // Name-based lookup
 export const ICONS = {
@@ -92,7 +94,9 @@ export const ICONS = {
   ArrowDownward,
   Abc,
   Visibility,
-  CheckCircle
+  CheckCircle,
+  SportsMartialArts,
+  Replay
 };
 
 /**

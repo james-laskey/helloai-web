@@ -24,6 +24,13 @@ const FEATURES = [
     color: 'var(--nb-orange)',
   },
   {
+    id: 'ninja',
+    label: 'Hello Ninja',
+    description: 'Click the correct word before it hits the ground',
+    icon: 'SportsMartialArts',
+    color: 'var(--nb-red)',
+  },
+  {
     id: 'crossword',
     label: 'Crossword Puzzle',
     description: 'Fill in a themed grid of characters or words',

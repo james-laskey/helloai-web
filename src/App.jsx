@@ -4,7 +4,9 @@ import { QuestionnaireScreen } from './screens/QuestionnaireScreen';
 import { TopicSelectionScreen } from './screens/TopicSelectionScreen';
 import { FeatureSelectionScreen } from './components/FeatureSelectionScreen';
 import { LearningScreen } from './screens/LearningScreen';
+import { NinjaGame } from './components/ninja/NinjaGame';
 import { api } from './services/api';
+import { authApi } from './services/authApi';
 
 const LANGUAGE_SPEECH_CODES = {
   English: 'en-US',
@@ -35,36 +37,36 @@ const App = () => {
   /* -------- Language + navigation -------- */
   const [selectedLanguage, setSelectedLanguage] = useState('Spanish');
   const [selectedTopic, setSelectedTopic] = useState(null);
-  const [isFeatureSelected, setIsFeatureSelected] = useState(false); // NEW: feature picker open
-  const [isTopicSet, setIsTopicSet] = useState(false);               // mode is running
+  const [isFeatureSelected, setIsFeatureSelected] = useState(false);
+  const [isTopicSet, setIsTopicSet] = useState(false);
   const [learningMode, setLearningMode] = useState(null);
 
-  /* -------- Reading lesson state (unchanged) -------- */
+  /* -------- Reading lesson state -------- */
   const [lesson, setLesson] = useState(null);
   const [isLessonLoading, setIsLessonLoading] = useState(false);
   const [lessonError, setLessonError] = useState(null);
   const [pendingLessonConfig, setPendingLessonConfig] = useState(null);
 
-  /* -------- Audio (unchanged) -------- */
+  /* -------- Audio -------- */
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [activeSentenceIndex, setActiveSentenceIndex] = useState(null);
 
-  /* -------- Stats (unchanged) -------- */
+  /* -------- Stats -------- */
   const [showStats, setShowStats] = useState(false);
   const [userStats, setUserStats] = useState(null);
 
   const speechSynthRef = useRef(null);
   const lastProgressSaveRef = useRef(0);
 
-  /* -------- Speech synthesis (unchanged) -------- */
+  /* -------- Speech synthesis -------- */
   useEffect(() => {
     if ('speechSynthesis' in window) {
       speechSynthRef.current = window.speechSynthesis;
     }
   }, []);
 
-  /* -------- Bootstrap (unchanged) -------- */
+  /* -------- Bootstrap -------- */
   useEffect(() => {
     bootstrap();
   }, []);
@@ -72,35 +74,28 @@ const App = () => {
   const bootstrap = async () => {
     setIsHydrating(true);
     try {
-      const savedUser = localStorage.getItem('userData');
-      const savedPreferences = localStorage.getItem('userPreferences');
-      const savedUserId = localStorage.getItem('userId');
+      const result = await api.fetchCurrentUser();
 
-      if (!savedUser) {
+      if (!result?.user) {
+        setIsAuthenticated(false);
         setIsHydrating(false);
         return;
       }
 
-      const parsedUser = JSON.parse(savedUser);
-      setUserData(parsedUser);
-      setUserId(savedUserId || parsedUser.id);
+      setUserData(result.user);
+      setUserId(result.user.id);
       setIsAuthenticated(true);
 
-      if (savedPreferences) {
-        const parsedPrefs = JSON.parse(savedPreferences);
-        setUserPreferences(parsedPrefs);
-        setSelectedLanguage(parsedPrefs.targetLanguage || 'Spanish');
-      }
-
-      const result = await hydrateUser();
-
-      if (!result?.preferences && !savedPreferences) {
-        setShowQuestionnaire(true);
-      } else {
+      if (result.preferences) {
+        setUserPreferences(result.preferences);
+        setSelectedLanguage(result.preferences.targetLanguage || 'Spanish');
         setShowQuestionnaire(false);
+      } else {
+        setShowQuestionnaire(true);
       }
     } catch (error) {
-      console.error('Bootstrap error:', error);
+      console.warn('[bootstrap] no session', error?.message || error);
+      setIsAuthenticated(false);
     } finally {
       setIsHydrating(false);
     }
@@ -113,13 +108,10 @@ const App = () => {
 
       setUserData(result.user);
       setUserId(result.user.id);
-      localStorage.setItem('userData', JSON.stringify(result.user));
-      localStorage.setItem('userId', result.user.id);
 
       if (result.preferences) {
         setUserPreferences(result.preferences);
         setSelectedLanguage(result.preferences.targetLanguage || 'Spanish');
-        localStorage.setItem('userPreferences', JSON.stringify(result.preferences));
       }
 
       return result;
@@ -129,54 +121,11 @@ const App = () => {
     }
   };
 
-  const handleAuthComplete = async (user) => {
-    setUserData(user);
-    setUserId(user.id);
-    setIsAuthenticated(true);
-    localStorage.setItem('userData', JSON.stringify(user));
-    localStorage.setItem('userId', user.id);
-
-    const result = await hydrateUser();
-    if (result?.preferences) {
-      setShowQuestionnaire(false);
-      localStorage.setItem('userPreferences', JSON.stringify(result.preferences));
-    } else {
-      setShowQuestionnaire(true);
-    }
-  };
-
-  const handleQuestionnaireComplete = async (preferences) => {
-    try {
-      await api.savePreferences(preferences);
-    } catch (err) {
-      console.error('Failed to save preferences to backend:', err);
-    }
-    setUserPreferences(preferences);
-    setSelectedLanguage(preferences.targetLanguage);
-    setShowQuestionnaire(false);
-    localStorage.setItem('userPreferences', JSON.stringify(preferences));
-  };
-
-  const handleUpdatePreferences = async (newPreferences) => {
-    try {
-      await api.savePreferences(newPreferences);
-    } catch (err) {
-      console.error('Failed to update preferences on backend:', err);
-    }
-    setUserPreferences(newPreferences);
-    localStorage.setItem('userPreferences', JSON.stringify(newPreferences));
-    if (newPreferences.targetLanguage !== selectedLanguage) {
-      setSelectedLanguage(newPreferences.targetLanguage);
-    }
-  };
-
-  const handleLogout = async () => {
-    localStorage.removeItem('userData');
-    localStorage.removeItem('userPreferences');
-    localStorage.removeItem('userId');
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-
+  /**
+   * Resets all client state to the unauthenticated baseline.
+   * Called on logout and after account deletion is confirmed.
+   */
+  const resetClientState = useCallback(() => {
     setIsAuthenticated(false);
     setShowQuestionnaire(false);
     setUserData(null);
@@ -191,9 +140,74 @@ const App = () => {
     setLessonError(null);
     setPendingLessonConfig(null);
     lastProgressSaveRef.current = 0;
+  }, []);
+
+  /**
+   * Request account deletion. This is step 1 of a two-step flow:
+   *   1. This function asks the backend to email a confirmation link.
+   *   2. The user clicks the link in their inbox, which actually deletes
+   *      the account on the backend.
+   *
+   * Because the account is NOT deleted here, we do NOT reset client
+   * state. The user is still logged in until they confirm via email.
+   * Returns the response so the SettingsModal can inspect `emailSent`.
+   */
+  const handleDeleteAccount = async () => {
+    try {
+      const result = await authApi.requestAccountDeletion();
+      return result;
+    } catch (err) {
+      console.error('Request account deletion failed:', err);
+      throw err;
+    }
   };
 
-  /* -------- Speech (unchanged) -------- */
+  const handleAuthComplete = async (user) => {
+    setUserData(user);
+    setUserId(user.id);
+    setIsAuthenticated(true);
+
+    const result = await hydrateUser();
+    if (result?.preferences) {
+      setShowQuestionnaire(false);
+    } else {
+      setShowQuestionnaire(true);
+    }
+  };
+
+  const handleQuestionnaireComplete = async (preferences) => {
+    try {
+      await api.savePreferences(preferences);
+    } catch (err) {
+      console.error('Failed to save preferences to backend:', err);
+    }
+    setUserPreferences(preferences);
+    setSelectedLanguage(preferences.targetLanguage);
+    setShowQuestionnaire(false);
+  };
+
+  const handleUpdatePreferences = async (newPreferences) => {
+    try {
+      await api.savePreferences(newPreferences);
+    } catch (err) {
+      console.error('Failed to update preferences on backend:', err);
+    }
+    setUserPreferences(newPreferences);
+    if (newPreferences.targetLanguage !== selectedLanguage) {
+      setSelectedLanguage(newPreferences.targetLanguage);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await authApi.logout();
+    } catch (err) {
+      console.error('Logout API error:', err);
+    }
+    resetClientState();
+  };
+
+  /* -------- Speech -------- */
   const speakText = useCallback(
     (text, { onStart, onEnd, lang } = {}) => {
       if (isMuted || !speechSynthRef.current || !text) return;
@@ -250,22 +264,19 @@ const App = () => {
     });
   }, [stopSpeaking]);
 
-  /* -------- Navigation: topic picker → feature picker → mode -------- */
+  /* -------- Navigation -------- */
 
-  // Called when a topic card is clicked. Opens the feature selection screen.
   const handleSelectTopic = (topic) => {
     setSelectedTopic(topic);
     setIsFeatureSelected(true);
   };
 
-  // Called when a feature tile is clicked. Starts the mode.
   const handleSelectFeature = (featureId) => {
     setLearningMode(featureId);
     setIsFeatureSelected(false);
     setIsTopicSet(true);
   };
 
-  // Back from feature picker → topic picker
   const handleBackToTopics = () => {
     setIsFeatureSelected(false);
     setSelectedTopic(null);
@@ -279,7 +290,6 @@ const App = () => {
     fetchStats();
   };
 
-  // Back from a running mode → feature picker
   const handleBackToFeatures = () => {
     setIsTopicSet(false);
     setLearningMode(null);
@@ -292,7 +302,7 @@ const App = () => {
     setIsFeatureSelected(true);
   };
 
-  /* -------- Reading lesson flow (unchanged) -------- */
+  /* -------- Reading lesson flow -------- */
 
   const handleGenerateLesson = async ({ questionCount, difficulty }) => {
     setPendingLessonConfig({ questionCount, difficulty });
@@ -395,7 +405,7 @@ const App = () => {
     handleBackToFeatures();
   };
 
-  /* -------- Stats (unchanged) -------- */
+  /* -------- Stats -------- */
 
   const fetchStats = async () => {
     if (!userId) return;
@@ -438,7 +448,44 @@ const App = () => {
     );
   }
 
-  // 1. Mode is running → LearningScreen
+  /* -------- Ninja mode -------- */
+
+  if (isTopicSet && learningMode === 'ninja') {
+    return (
+      <div className="nb-container" style={{ background: 'var(--nb-purple)' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: 'var(--nb-space-md) var(--nb-space-lg)',
+            background: 'var(--nb-white)',
+            borderBottom: 'var(--nb-border)',
+          }}
+        >
+          <button onClick={handleBackToFeatures} className="nb-button">
+            Back
+          </button>
+          <h1 className="nb-heading nb-heading-md" style={{ margin: 0 }}>
+            Hello Ninja
+          </h1>
+          <div style={{ width: '100px' }} />
+        </div>
+        <div style={{ padding: 'var(--nb-space-lg)' }}>
+          <NinjaGame
+            userId={userId}
+            language={selectedLanguage}
+            topicId={selectedTopic?.id}
+            topicName={selectedTopic?.name}
+            onBack={handleBackToFeatures}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  /* -------- Other learning modes -------- */
+
   if (isTopicSet) {
     return (
       <LearningScreen
@@ -471,7 +518,8 @@ const App = () => {
     );
   }
 
-  // 2. Feature picker is open → FeatureSelectionScreen
+  /* -------- Feature picker -------- */
+
   if (isFeatureSelected && selectedTopic) {
     return (
       <FeatureSelectionScreen
@@ -487,7 +535,8 @@ const App = () => {
     );
   }
 
-  // 3. Default → TopicSelectionScreen
+  /* -------- Topic picker -------- */
+
   return (
     <TopicSelectionScreen
       selectedLanguage={selectedLanguage}
@@ -500,6 +549,8 @@ const App = () => {
       userPreferences={userPreferences}
       onUpdatePreferences={handleUpdatePreferences}
       onLogout={handleLogout}
+      user={userData}
+      onDeleteAccount={handleDeleteAccount}
     />
   );
 };

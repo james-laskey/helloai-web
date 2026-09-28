@@ -1,88 +1,55 @@
-// services/api.js — clean version
+// services/api.js
+
+import { csrfHeaders } from '../utils/csrf';
 
 const API_URL =
   process.env.REACT_APP_API_URL || 'https://helloapi-five.vercel.app';
 
-/* ---------- Token helpers (unchanged) ---------- */
-
-const getToken = () => {
-  try {
-    return localStorage.getItem('accessToken');
-  } catch (error) {
-    console.error('Error getting token:', error);
-    return null;
-  }
-};
-
-const refreshAccessToken = async () => {
-  try {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (!refreshToken) return null;
-
-    const response = await fetch(`${API_URL}/api/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      localStorage.setItem('accessToken', data.accessToken);
-      return data.accessToken;
-    }
-    return null;
-  } catch (error) {
-    console.error('Token refresh error:', error);
-    return null;
-  }
-};
+/* ---------- Authenticated fetch ---------- */
 
 const authenticatedFetch = async (url, options = {}) => {
-  const token = getToken();
+  const method = options.method || 'GET';
 
-  const makeRequest = async (requestToken) => {
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-      ...(requestToken && { Authorization: `Bearer ${requestToken}` }),
-    };
-
-    const response = await fetch(url, { ...options, headers });
-
-    if (response.status === 401 && requestToken) {
-      const newToken = await refreshAccessToken();
-      if (newToken) {
-        return fetch(url, {
-          ...options,
-          headers: {
-            'Content-Type': 'application/json',
-            ...options.headers,
-            Authorization: `Bearer ${newToken}`,
-          },
-        });
-      }
-    }
-
-    return response;
+  const makeRequest = async () => {
+    return fetch(url, {
+      ...options,
+      method,
+      credentials: 'include',
+      headers: {
+        ...csrfHeaders(method),
+        ...(options.headers || {}),
+      },
+    });
   };
 
-  return makeRequest(token);
+  let response = await makeRequest();
+
+  // On 401, try to refresh the access token via the cookie, then retry.
+  if (response.status === 401) {
+    const refreshResponse = await fetch(`${API_URL}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: csrfHeaders('POST'),
+    });
+
+    if (refreshResponse.ok) {
+      response = await makeRequest();
+    }
+  }
+
+  return response;
 };
 
-/* ---------- API ---------- */
+/* ---------- API (methods unchanged, only the transport is different) ---------- */
 
 export const api = {
-  /* Stats */
   fetchStats: async (userId) => {
     try {
       const response = await authenticatedFetch(
         `${API_URL}/api/stats/${userId}`,
         { method: 'GET' }
       );
-      if (!response.ok) {
-        console.error('fetchStats failed:', response.status);
-        return null;
-      }
+      if (!response.ok) return null;
       return await response.json();
     } catch (error) {
       console.error('Fetch stats error:', error);
@@ -90,186 +57,136 @@ export const api = {
     }
   },
 
-  /* Reading lessons */
   generateLesson: async (payload) => {
     const response = await authenticatedFetch(
       `${API_URL}/api/learning/generate-lesson`,
-      {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      }
+      { method: 'POST', body: JSON.stringify(payload) }
     );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('API Error - generateLesson:', response.status, errorText);
-      throw new Error(`API returned ${response.status}`);
-    }
-
+    if (!response.ok) throw new Error(`API returned ${response.status}`);
     return await response.json();
   },
 
   submitLessonResults: async (payload) => {
     const response = await authenticatedFetch(
       `${API_URL}/api/learning/submit-lesson`,
-      {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      }
+      { method: 'POST', body: JSON.stringify(payload) }
     );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(
-        'API Error - submitLessonResults:',
-        response.status,
-        errorText
-      );
-      throw new Error(`API returned ${response.status}`);
-    }
-
+    if (!response.ok) throw new Error(`API returned ${response.status}`);
     return await response.json();
   },
 
-  /* Flashcards */
   generateFlashcards: async (data) => {
     const response = await authenticatedFetch(
       `${API_URL}/api/learning/generate-flashcards`,
-      {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }
+      { method: 'POST', body: JSON.stringify(data) }
     );
-    if (!response.ok) {
-      throw new Error(`API returned ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`API returned ${response.status}`);
     return await response.json();
   },
 
   updateFlashcardMastery: async (data) => {
     const response = await authenticatedFetch(
       `${API_URL}/api/learning/update-flashcard-mastery`,
-      {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }
+      { method: 'POST', body: JSON.stringify(data) }
     );
-    if (!response.ok) {
-      throw new Error(`API returned ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`API returned ${response.status}`);
     return await response.json();
   },
 
-  /* Quiz */
   generateQuiz: async (data) => {
     const response = await authenticatedFetch(
       `${API_URL}/api/learning/generate-quiz`,
-      {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }
+      { method: 'POST', body: JSON.stringify(data) }
     );
-    if (!response.ok) {
-      throw new Error(`API returned ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`API returned ${response.status}`);
     return await response.json();
   },
 
   submitQuiz: async (data) => {
     const response = await authenticatedFetch(
       `${API_URL}/api/learning/submit-quiz`,
-      {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }
+      { method: 'POST', body: JSON.stringify(data) }
     );
-    if (!response.ok) {
-      throw new Error(`API returned ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`API returned ${response.status}`);
     return await response.json();
   },
-  // services/api.js — add to api object
 
-saveLessonProgress: async (payload) => {
-  const response = await authenticatedFetch(
-    `${API_URL}/api/learning/lesson-progress`,
-    {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }
-  );
-  if (!response.ok) {
-    throw new Error(`API returned ${response.status}`);
-  }
-  return await response.json();
-},
-saveLessonProgress: async (payload) => {
-  const response = await authenticatedFetch(
-    `${API_URL}/api/learning/lesson-progress`,
-    {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(
-      'API Error - saveLessonProgress:',
-      response.status,
-      errorText
+  saveLessonProgress: async (payload) => {
+    const response = await authenticatedFetch(
+      `${API_URL}/api/learning/lesson-progress`,
+      { method: 'POST', body: JSON.stringify(payload) }
     );
-    throw new Error(`API returned ${response.status}`);
-  }
+    if (!response.ok) throw new Error(`API returned ${response.status}`);
+    return await response.json();
+  },
 
-  return await response.json();
-},
-// services/api.js
+  fetchCurrentUser: async () => {
+    const response = await authenticatedFetch(`${API_URL}/api/auth/me`, {
+      method: 'GET',
+    });
+    if (!response.ok) throw new Error(`API returned ${response.status}`);
+    return await response.json();
+  },
 
-fetchCurrentUser: async () => {
-  const response = await authenticatedFetch(`${API_URL}/api/auth/me`, {
-    method: 'GET',
-  });
-  if (!response.ok) {
-    throw new Error(`API returned ${response.status}`);
-  }
-  return await response.json();
-},
+  savePreferences: async (preferences) => {
+    const response = await authenticatedFetch(
+      `${API_URL}/api/auth/preferences`,
+      { method: 'POST', body: JSON.stringify(preferences) }
+    );
+    if (!response.ok) throw new Error(`API returned ${response.status}`);
+    return await response.json();
+  },
 
-savePreferences: async (preferences) => {
+  getLessonAttempts: async ({ userId, topicId, language }) => {
+    const response = await authenticatedFetch(
+      `${API_URL}/api/learning/lesson-attempts`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ userId, topicId, language }),
+      }
+    );
+    if (!response.ok) throw new Error(`API returned ${response.status}`);
+    return await response.json();
+  },
+
+  generateCrossword: async (payload) => {
+    const response = await authenticatedFetch(
+      `${API_URL}/api/crossword/generate`,
+      { method: 'POST', body: JSON.stringify(payload) }
+    );
+    if (!response.ok) throw new Error(`API returned ${response.status}`);
+    return await response.json();
+  },
+
+  fetchCrossword: async (puzzleId, userId) => {
+    const response = await authenticatedFetch(
+      `${API_URL}/api/crossword/${puzzleId}?userId=${encodeURIComponent(userId)}`,
+      { method: 'GET' }
+    );
+    if (!response.ok) throw new Error(`API returned ${response.status}`);
+    return await response.json();
+  },
+
+  saveCrosswordProgress: async (payload) => {
+    const response = await authenticatedFetch(
+      `${API_URL}/api/crossword/save-progress`,
+      { method: 'POST', body: JSON.stringify(payload) }
+    );
+    if (!response.ok) throw new Error(`API returned ${response.status}`);
+    return await response.json();
+  },
+
+  listCrosswords: async (payload) => {
+    const response = await authenticatedFetch(
+      `${API_URL}/api/crossword/list`,
+      { method: 'POST', body: JSON.stringify(payload) }
+    );
+    if (!response.ok) throw new Error(`API returned ${response.status}`);
+    return await response.json();
+  },
+  generateNinjaGame: async (payload) => {
   const response = await authenticatedFetch(
-    `${API_URL}/api/auth/preferences`,
-    {
-      method: 'POST',
-      body: JSON.stringify(preferences),
-    }
-  );
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('savePreferences error:', response.status, errorText);
-    throw new Error(`API returned ${response.status}`);
-  }
-  return await response.json();
-},
-// services/api.js — add to api object
-
-getLessonAttempts: async ({ userId, topicId, language }) => {
-  const response = await authenticatedFetch(
-    `${API_URL}/api/learning/lesson-attempts`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ userId, topicId, language }),
-    }
-  );
-  if (!response.ok) {
-    throw new Error(`API returned ${response.status}`);
-  }
-  return await response.json();
-},
-
-generateCrossword: async (payload) => {
-  const response = await authenticatedFetch(
-    `${API_URL}/api/crossword/generate`,
+    `${API_URL}/api/ninja/generate`,
     { method: 'POST', body: JSON.stringify(payload) }
   );
   if (!response.ok) {
@@ -279,36 +196,28 @@ generateCrossword: async (payload) => {
   return await response.json();
 },
 
-fetchCrossword: async (puzzleId) => {
+fetchNinjaGame: async (gameId, userId) => {
   const response = await authenticatedFetch(
-    `${API_URL}/api/crossword/${puzzleId}`,
+    `${API_URL}/api/ninja/${gameId}?userId=${encodeURIComponent(userId)}`,
     { method: 'GET' }
   );
   if (!response.ok) throw new Error(`API returned ${response.status}`);
   return await response.json();
 },
 
-saveCrosswordProgress: async (payload) => {
+submitNinjaResults: async (payload) => {
   const response = await authenticatedFetch(
-    `${API_URL}/api/crossword/save-progress`,
-    { method: 'POST', body: JSON.stringify(payload) }
-  );
-  if (!response.ok) throw new Error(`API returned ${response.status}`);
-  return await response.json();
-},
-listCrosswords: async (payload) => {
-  const response = await authenticatedFetch(
-    `${API_URL}/api/crossword/list`,
+    `${API_URL}/api/ninja/submit`,
     { method: 'POST', body: JSON.stringify(payload) }
   );
   if (!response.ok) throw new Error(`API returned ${response.status}`);
   return await response.json();
 },
 
-fetchCrossword: async (puzzleId, userId) => {
+listNinjaGames: async (payload) => {
   const response = await authenticatedFetch(
-    `${API_URL}/api/crossword/${puzzleId}?userId=${encodeURIComponent(userId)}`,
-    { method: 'GET' }
+    `${API_URL}/api/ninja/list`,
+    { method: 'POST', body: JSON.stringify(payload) }
   );
   if (!response.ok) throw new Error(`API returned ${response.status}`);
   return await response.json();

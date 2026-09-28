@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "/static/css/main.fa3632bc.css",
-    "main.js": "/static/js/main.f0c56c1c.js",
+    "main.js": "/static/js/main.6f37ab00.js",
     "static/media/logo.svg": "/static/media/logo.77769cb4931baa90dbc1af2734a1ab58.svg",
     "static/media/language.svg": "/static/media/language.5cc246341c574e0d53017b75b5e3742a.svg",
     "static/media/menu_book.svg": "/static/media/menu_book.5c51721988ed1fc83992d837fc30e050.svg",
@@ -10,6 +10,7 @@
     "static/media/all_inclusive.svg": "/static/media/all_inclusive.eadf7481fa522cfdd1e44fb77534a429.svg",
     "static/media/quiz.svg": "/static/media/quiz.e5f789963e3d64fb5c4bd04329681cbe.svg",
     "static/media/insights.svg": "/static/media/insights.cef97df350b78ffd853cb23e7c0fc402.svg",
+    "static/media/casino.svg": "/static/media/casino.0b934f643bec2d0caaa162246f844a5b.svg",
     "static/media/style.svg": "/static/media/style.3b1b24a99c864f1beda70e33219259fe.svg",
     "static/media/attach_money.svg": "/static/media/attach_money.eb11126f4dbc56fccb8bd785a4b93c59.svg",
     "static/media/volume_off.svg": "/static/media/volume_off.f145632f488097d1e08f07dd27ddd225.svg",
@@ -47,14 +48,15 @@
     "static/media/check.svg": "/static/media/check.536a9128a84bedc72bd2fcf042c7ceb9.svg",
     "static/media/expand_less.svg": "/static/media/expand_less.09995e9efaaa445c37a442192818b997.svg",
     "static/media/expand_more.svg": "/static/media/expand_more.31d5b0683ccce72c008f0e2b0a5017ba.svg",
+    "static/media/send.svg": "/static/media/send.28790f1094fc0ea982fca87fc57b4f66.svg",
     "static/media/arrow_drop_down.svg": "/static/media/arrow_drop_down.d01b5b9fd1dee89d47645c2da720ea16.svg",
     "static/media/play_arrow.svg": "/static/media/play_arrow.f8ecb826dc6b305de3044c93a5fe0cd1.svg",
     "static/media/stop.svg": "/static/media/stop.2f57eafa2e4d7d490ff06c09ba306145.svg",
     "main.fa3632bc.css.map": "/static/css/main.fa3632bc.css.map",
-    "main.f0c56c1c.js.map": "/static/js/main.f0c56c1c.js.map"
+    "main.6f37ab00.js.map": "/static/js/main.6f37ab00.js.map"
   },
   "entrypoints": [
     "static/css/main.fa3632bc.css",
-    "static/js/main.f0c56c1c.js"
+    "static/js/main.6f37ab00.js"
   ]
 }

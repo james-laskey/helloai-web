@@ -5,6 +5,7 @@ import { TopicSelectionScreen } from './screens/TopicSelectionScreen';
 import { FeatureSelectionScreen } from './components/FeatureSelectionScreen';
 import { LearningScreen } from './screens/LearningScreen';
 import { NinjaGame } from './components/ninja/NinjaGame';
+import { FortuneGame } from './components/fortune/FortuneGame';
 import { api } from './services/api';
 import { authApi } from './services/authApi';
 
@@ -473,6 +474,39 @@ const App = () => {
         </div>
         <div style={{ padding: 'var(--nb-space-lg)' }}>
           <NinjaGame
+            userId={userId}
+            language={selectedLanguage}
+            topicId={selectedTopic?.id}
+            topicName={selectedTopic?.name}
+            onBack={handleBackToFeatures}
+          />
+        </div>
+      </div>
+    );
+  }
+  if (isTopicSet && learningMode === 'fortune') {
+    return (
+      <div className="nb-container" style={{ background: 'var(--nb-purple)' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: 'var(--nb-space-md) var(--nb-space-lg)',
+            background: 'var(--nb-white)',
+            borderBottom: 'var(--nb-border)',
+          }}
+        >
+          <button onClick={handleBackToFeatures} className="nb-button">
+            Back
+          </button>
+          <h1 className="nb-heading nb-heading-md" style={{ margin: 0 }}>
+            Hello Land of Fortune
+          </h1>
+          <div style={{ width: '100px' }} />
+        </div>
+        <div style={{ padding: 'var(--nb-space-lg)' }}>
+          <FortuneGame
             userId={userId}
             language={selectedLanguage}
             topicId={selectedTopic?.id}

@@ -31,12 +31,20 @@ const FEATURES = [
     color: 'var(--nb-red)',
   },
   {
+    id: 'fortune',
+    label: 'Hello Land of Fortune',
+    description: 'Guess the hidden phrase one letter at a time',
+    icon: 'Casino',
+    color: 'var(--nb-yellow)',
+  },
+  {
     id: 'crossword',
     label: 'Crossword Puzzle',
     description: 'Fill in a themed grid of characters or words',
     icon: 'GridView',
     color: 'var(--nb-lime)',
   },
+
 ];
 
 export const FeatureSelectionScreen = ({

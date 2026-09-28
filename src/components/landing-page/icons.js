@@ -48,6 +48,8 @@ import { ReactComponent as Visibility } from '@material-design-icons/svg/filled/
 import { ReactComponent as CheckCircle } from '@material-design-icons/svg/filled/check_circle.svg';
 import { ReactComponent as SportsMartialArts } from '@material-design-icons/svg/filled/sports_martial_arts.svg';
 import { ReactComponent as Replay } from '@material-design-icons/svg/filled/replay.svg';
+import { ReactComponent as Casino } from '@material-design-icons/svg/filled/casino.svg';
+import { ReactComponent as Send } from '@material-design-icons/svg/filled/send.svg';
 
 // Name-based lookup
 export const ICONS = {
@@ -96,7 +98,9 @@ export const ICONS = {
   Visibility,
   CheckCircle,
   SportsMartialArts,
-  Replay
+  Replay,
+  Casino,
+  Send
 };
 
 /**

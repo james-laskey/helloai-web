@@ -270,4 +270,42 @@ export const api = {
     if (!response.ok) throw new Error(`API returned ${response.status}`);
     return await response.json();
   },
+  generateFortuneGame: async (payload) => {
+  const response = await authenticatedFetch(
+    `${API_URL}/api/fortune/generate`,
+    { method: 'POST', body: JSON.stringify(payload) }
+  );
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`API returned ${response.status}: ${text}`);
+  }
+  return await response.json();
+},
+
+fetchFortuneGame: async (gameId, userId) => {
+  const response = await authenticatedFetch(
+    `${API_URL}/api/fortune/${gameId}?userId=${encodeURIComponent(userId)}`,
+    { method: 'GET' }
+  );
+  if (!response.ok) throw new Error(`API returned ${response.status}`);
+  return await response.json();
+},
+
+submitFortuneResults: async (payload) => {
+  const response = await authenticatedFetch(
+    `${API_URL}/api/fortune/submit`,
+    { method: 'POST', body: JSON.stringify(payload) }
+  );
+  if (!response.ok) throw new Error(`API returned ${response.status}`);
+  return await response.json();
+},
+
+listFortuneGames: async (payload) => {
+  const response = await authenticatedFetch(
+    `${API_URL}/api/fortune/list`,
+    { method: 'POST', body: JSON.stringify(payload) }
+  );
+  if (!response.ok) throw new Error(`API returned ${response.status}`);
+  return await response.json();
+},
 };

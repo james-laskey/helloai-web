@@ -95,7 +95,7 @@ export const HeroSection = () => {
               ·
             </span>
             <span className="nb-badge" style={{ background: 'var(--nb-cyan)' }}>
-              $1.99 one-time unlocks unlimited
+              Virtually Unlimited Rate Limitations
             </span>
           </div>
 

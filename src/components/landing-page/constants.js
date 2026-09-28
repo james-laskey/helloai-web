@@ -9,38 +9,38 @@ export const NAV_LINKS = [
 
 export const FEATURES = [
   {
-    icon: 'Chat',
-    title: 'AI Voice Tutor',
+    icon: 'SportsMartialArts',
+    title: 'Hello Ninja',
     description:
-      'Have natural conversations with an AI tutor that speaks your target language fluently and corrects your mistakes gently.',
+      'Words fall from the sky. Click the right one before it hits the ground. Speed, combos, and vocabulary under pressure.',
     color: 'var(--nb-yellow)',
+  },
+  {
+    icon: 'Casino',
+    title: 'Hello Land of Fortune',
+    description:
+      'Spin the board, guess a letter, and bet your score. A Wheel-of-Fortune style guessing game with real risk and reward.',
+    color: 'var(--nb-cyan)',
+  },
+  {
+    icon: 'GridView',
+    title: 'Hello Crossword',
+    description:
+      'Solve themed crossword puzzles where every sentence is generated for your level. Read, guess, and fill the grid.',
+    color: 'var(--nb-lime)',
+  },
+  {
+    icon: 'MenuBook',
+    title: 'Reading Lessons',
+    description:
+      'Read along with native-pronunciation audio, tap any word for a translation, and answer comprehension questions as you go.',
+    color: 'var(--nb-pink)',
   },
   {
     icon: 'Style',
     title: 'Smart Flashcards',
     description:
-      'AI-generated flashcards tailored to your topics with spaced repetition to help you remember what you learn.',
-    color: 'var(--nb-cyan)',
-  },
-  {
-    icon: 'Quiz',
-    title: 'Interactive Quizzes',
-    description:
-      'Test your knowledge with adaptive quizzes that get harder as you improve, with detailed explanations for every answer.',
-    color: 'var(--nb-pink)',
-  },
-  {
-    icon: 'Insights',
-    title: 'Progress Tracking',
-    description:
-      'Track your learning journey with detailed stats — time spent, cards mastered, quiz scores, and more.',
-    color: 'var(--nb-lime)',
-  },
-  {
-    icon: 'Tune',
-    title: 'Adaptive Difficulty',
-    description:
-      'From complete beginner to advanced, the app adjusts to your proficiency level automatically.',
+      'AI-generated flashcards for every topic, with spaced repetition that focuses on the words you keep forgetting.',
     color: 'var(--nb-orange)',
   },
   {
@@ -63,16 +63,16 @@ export const STEPS = [
   },
   {
     number: '2',
-    title: 'Pick a Topic',
+    title: 'Pick a Game',
     description:
-      'Choose from curated topics like greetings, food, travel, or grammar. Each topic has tailored lessons.',
+      'Choose a mode — reading, flashcards, quiz, Ninja, Fortune, or Crossword. Every mode adapts to your topic and difficulty.',
     color: 'var(--nb-lime)',
   },
   {
     number: '3',
-    title: 'Practice & Master',
+    title: 'Play, Practice, Master',
     description:
-      'Talk with your AI tutor, review flashcards, and take quizzes — all in one app.',
+      'Learn a language by playing. Track your streak, high scores, and progress across every mode.',
     color: 'var(--nb-pink)',
   },
 ];
@@ -86,30 +86,30 @@ export const SCREENSHOTS = [
     image: '/images/screenshots/topic-selection.png',
   },
   {
-    icon: 'School',
-    title: 'AI Tutor Chat',
-    caption: 'Have real conversations',
+    icon: 'SportsMartialArts',
+    title: 'Hello Ninja',
+    caption: 'Click words before they fall',
     color: 'var(--nb-pink)',
-    image: '/images/screenshots/ai-tutor.png',
+    image: '/images/screenshots/ninja.png',
   },
   {
-    icon: 'Style',
-    title: 'Flashcards',
-    caption: 'Master vocabulary fast',
+    icon: 'Casino',
+    title: 'Hello Land of Fortune',
+    caption: 'Guess letters, bet your score',
     color: 'var(--nb-lime)',
-    image: '/images/screenshots/flashcards.png',
+    image: '/images/screenshots/fortune.png',
   },
   {
-    icon: 'Quiz',
-    title: 'Quizzes',
-    caption: 'Test your knowledge',
+    icon: 'GridView',
+    title: 'Hello Crossword',
+    caption: 'Solve sentence puzzles',
     color: 'var(--nb-cyan)',
-    image: '/images/screenshots/quiz.png',
+    image: '/images/screenshots/crossword.png',
   },
   {
     icon: 'Insights',
     title: 'Progress Stats',
-    caption: 'Track your progress',
+    caption: 'Track your streak and high scores',
     color: 'var(--nb-purple)',
     image: '/images/screenshots/stats.png',
     iconColor: 'var(--nb-white)',
@@ -118,57 +118,57 @@ export const SCREENSHOTS = [
 
 export const PRICING_PLANS = [
   {
-    name: 'Free',
+    name: 'Free Forever',
     price: '$0',
-    period: ' forever',
-    tagline: 'Great for casual learners',
+    period: ' always',
+    tagline: 'Every feature, every language, no paywall',
     features: [
       'All 10 languages',
       'All topics & lessons',
-      'AI Tutor — 20 messages/day',
-      'Flashcards — 3 sets/day',
-      'Quizzes — 2 per day',
-      'Progress tracking',
+      'Every game mode unlocked',
+      'Unlimited flashcards, quizzes, reading',
+      'Unlimited Hello Ninja, Fortune, Crossword',
+      'Progress tracking & high scores',
     ],
     cta: 'Start Learning Free',
     featured: false,
   },
   {
-    name: 'Lifetime Unlock',
-    price: '$1.99',
+    name: 'Support the Developer',
+    price: 'Any amount',
     period: ' one-time',
-    tagline: 'Pay once. Learn forever.',
+    tagline: 'Optional donation. Keeps the app free for everyone.',
     features: [
-      'Everything in Free',
-      'Unlimited AI Tutor messages',
-      'Unlimited flashcards & quizzes',
-      'Priority AI responses',
-      'No daily limits, ever',
-      'All future languages included',
+      'Everything is already free',
+      'Funds AI usage for all learners',
+      'Supports new languages & features',
+      'Keeps the app ad-free',
+      'One-time or recurring, your choice',
+      'Cancel anytime, no commitment',
     ],
-    cta: 'Unlock for $1.99',
+    cta: 'Support Hello Ai',
     featured: true,
-    badge: 'BEST VALUE',
+    badge: 'OPTIONAL',
   },
 ];
 
 export const PRICING_FAQ = {
-  title: 'Why is it only $1.99?',
+  title: 'Why is it completely free?',
   subtitle:
-    'Modern AI is remarkably cheap to run. We pass those savings on to you — no subscriptions, no markup, no games.',
+    'Language learning should not be locked behind a paywall. AI is cheap enough now that we can run the whole app on donations — no subscriptions, no ads, no data selling.',
   stats: [
     {
       icon: 'Forum',
       value: '13',
       label: 'Requests (30 days)',
-      detail: 'Real API calls made to test the tutor',
+      detail: 'Real API calls made to test the app',
       color: 'var(--nb-cyan)',
     },
     {
       icon: 'Description',
       value: '10,923',
       label: 'Tokens processed',
-      detail: '≈ 8,000 words of AI conversation',
+      detail: '≈ 8,000 words of generated content',
       color: 'var(--nb-lime)',
     },
     {
@@ -190,54 +190,54 @@ export const PRICING_FAQ = {
     {
       icon: 'Bolt',
       title: 'AI is cheap now',
-      body: 'A typical tutor conversation (≈840 tokens) costs less than half a cent with DeepSeek. That\u2019s why we can offer unlimited use for a one-time $1.99.',
+      body: 'A typical lesson or game round costs less than half a cent with DeepSeek. That is why we can offer unlimited use for free — no subscription required.',
     },
     {
       icon: 'DarkMode',
       title: 'Off-peak pricing',
-      body: 'DeepSeek bills weekends and Chinese holidays at a discount. We batch non-urgent requests (like flashcard generation) during these windows to cut costs further.',
+      body: 'DeepSeek bills weekends and Chinese holidays at a discount. We batch non-urgent generation during those windows to keep costs down even further.',
     },
     {
       icon: 'GpsFixed',
-      title: 'Free tier keeps it fair',
-      body: 'Free users get daily rate limits so everyone can practice. Unlock Lifetime for $1.99 to remove all limits — one payment, no subscription.',
+      title: 'Donations keep it free',
+      body: 'Every dollar donated goes straight to AI usage and hosting. If enough people chip in, the app stays free for everyone — including the people who cannot afford it.',
     },
     {
       icon: 'AllInclusive',
-      title: 'One payment, years of use',
-      body: 'At under a cent per conversation, $1.99 covers hundreds of messages. Your purchase funds ongoing development, new languages, and future features.',
+      title: 'No paywall, ever',
+      body: 'Every mode, every language, every feature is unlocked for every user. No tiers, no upsells, no "premium" badge. Just learning.',
     },
   ],
 };
 
 export const SUSTAINABILITY = {
   badge: 'Sustainability',
-  title: 'How $1.99 Funds the Whole Thing',
+  title: 'How Hello Ai Stays Free',
   subtitle:
-    'No subscriptions, no ads, no upsells. Just a one-time price that keeps the lights on and the AI talking. Here\u2019s the math.',
+    'No subscriptions, no ads, no data selling. Just one developer and a small community of supporters. Here is the math.',
   metrics: [
     {
-      label: 'Free user',
-      value: '20 msgs/day',
-      note: 'Rate limited to keep it fair',
+      label: 'Cost per user',
+      value: '<$0.01',
+      note: 'Per lesson or game round',
       highlight: 'var(--nb-cyan)',
     },
     {
-      label: 'Paid user',
-      value: 'Unlimited',
-      note: 'One-time $1.99',
+      label: 'Monthly cost',
+      value: '~$30',
+      note: 'For ~1,000 active learners',
       highlight: 'var(--nb-yellow)',
     },
     {
-      label: 'Cost to us',
-      value: '<$0.01',
-      note: 'Per AI conversation',
+      label: 'Supporters',
+      value: '~600',
+      note: 'Needed at $0.05/mo each',
       highlight: 'var(--nb-lime)',
     },
     {
-      label: 'Break-even',
-      value: '~500 msgs',
-      note: 'At recent API rates',
+      label: 'Founder cost',
+      value: '$0',
+      note: 'When donations cover it',
       highlight: 'var(--nb-pink)',
     },
   ],
@@ -245,46 +245,46 @@ export const SUSTAINABILITY = {
     {
       icon: 'Bolt',
       title: 'AI is cheaper than you think',
-      body: 'A typical tutor exchange uses ~840 tokens and costs us less than a cent. So $1.99 covers hundreds of conversations before we break even.',
+      body: 'A typical lesson or game round uses ~840 tokens and costs less than a cent. A one-dollar donation covers dozens of rounds for someone else.',
       color: 'var(--nb-yellow)',
     },
     {
       icon: 'DarkMode',
       title: 'Off-peak batching',
-      body: 'Weekends and Chinese holidays are billed at off-peak rates. We queue non-urgent work (like flashcard generation) for those windows to cut costs further.',
+      body: 'Weekends and Chinese holidays are billed at off-peak rates. We queue non-urgent generation for those windows to cut costs further.',
       color: 'var(--nb-cyan)',
     },
     {
-      icon: 'AllInclusive',
-      title: 'One payment, years of use',
-      body: 'At $0.0004 per message, $1.99 funds roughly 5,000 conversations. Most learners never come close — which is exactly the point.',
+      icon: 'Favorite',
+      title: 'Support the developer',
+      body: 'This app is built and maintained by one person. Donations cover AI costs, hosting, and new features — no shareholders, no ads, no compromises.',
       color: 'var(--nb-lime)',
     },
   ],
   footer:
-    'This app is built by one person, not a corporation. Your $1.99 keeps it alive and funds new languages, features, and improvements.',
+    'This app is built by one person, not a corporation. Your support keeps it alive and funds new languages, games, and features for everyone.',
   badges: [
     { icon: 'Block', label: 'No subscriptions', color: 'var(--nb-red)', textColor: 'var(--nb-white)' },
     { icon: 'Block', label: 'No ads', color: 'var(--nb-red)', textColor: 'var(--nb-white)' },
-    { icon: 'Block', label: 'No data selling', color: 'var(--nb-red)', textColor: 'var(--nb-white)' },
-    { icon: 'Favorite', label: 'Built by one dev', color: 'var(--nb-lime)' },
+    { icon: 'Block', label: 'No paywalls', color: 'var(--nb-red)', textColor: 'var(--nb-white)' },
+    { icon: 'Favorite', label: 'Donation funded', color: 'var(--nb-lime)' },
   ],
 };
 
 export const HERO = {
-  badge: 'AI-Powered Language Learning',
+  badge: 'Free Language Learning, Powered by AI',
   subtitle:
-    'Practice real conversations with an AI tutor that adapts to your level. Learn Spanish, French, Japanese, Korean, and more — anytime, anywhere.',
+    'Play through reading lessons, flashcards, and three original games — Hello Ninja, Hello Land of Fortune, and Hello Crossword. Every mode, every language, always free.',
   image: '/images/screenshots/hero.png',
-  imageAlt: 'Hello Ai app — AI tutor conversation screen',
+  imageAlt: 'Hello Ai app — Hello Ninja gameplay screen',
   trustBadges: [
     {
       icon: 'Favorite',
-      label: 'Free to start',
+      label: 'Free forever',
     },
     {
-      icon: 'Diamond',
-      label: '$1.99 lifetime unlock',
+      icon: 'SportsMartialArts',
+      label: '3 original games',
     },
     {
       icon: 'Public',

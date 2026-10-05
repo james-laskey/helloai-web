@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
+import { TranslationTooltip } from './TranslationTooltip';
 
-export const FlashcardComponent = ({ flashcards, onComplete, onUpdateMastery }) => {
+export const FlashcardComponent = ({
+  flashcards,
+  onComplete,
+  onUpdateMastery,
+  nativeLanguage = 'English',
+}) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [knownCards, setKnownCards] = useState([]);
@@ -70,18 +76,22 @@ export const FlashcardComponent = ({ flashcards, onComplete, onUpdateMastery }) 
     <div style={{ maxWidth: '600px', margin: '0 auto' }}>
       {/* Progress */}
       <div className="nb-mb-lg">
-        <div style={{
-          height: '12px',
-          background: 'var(--nb-white)',
-          border: '2px solid var(--nb-black)',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            height: '100%',
-            width: `${progress}%`,
-            background: 'var(--nb-lime)',
-            transition: 'width 0.3s ease'
-          }} />
+        <div
+          style={{
+            height: '12px',
+            background: 'var(--nb-white)',
+            border: '2px solid var(--nb-black)',
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              height: '100%',
+              width: `${progress}%`,
+              background: 'var(--nb-lime)',
+              transition: 'width 0.3s ease',
+            }}
+          />
         </div>
         <p className="nb-text-sm nb-text-center nb-mt-sm">
           Card {currentIndex + 1} of {totalCards}
@@ -100,35 +110,100 @@ export const FlashcardComponent = ({ flashcards, onComplete, onUpdateMastery }) 
           justifyContent: 'center',
           cursor: 'pointer',
           background: isFlipped ? 'var(--nb-cyan)' : 'var(--nb-white)',
-          transform: isFlipped ? 'rotateY(0deg)' : 'rotateY(0deg)',
-          transition: 'all 0.3s ease'
+          transition: 'all 0.3s ease',
+          position: 'relative',
         }}
       >
         {!isFlipped ? (
           <>
-            <h2 className="nb-heading nb-heading-lg nb-text-center">{currentCard.front}</h2>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--nb-space-sm)',
+                justifyContent: 'center',
+                flexWrap: 'wrap',
+                marginBottom: 'var(--nb-space-md)',
+              }}
+            >
+              <div style={{ textAlign: 'center' }}>
+                <h2
+                  className="nb-heading nb-heading-lg nb-text-center"
+                  style={{ margin: 0 }}
+                >
+                  {currentCard.front}
+                </h2>
+                {currentCard.romanization && (
+                  <p
+                    className="nb-text-sm"
+                    style={{
+                      margin: '4px 0 0',
+                      color: '#888',
+                      fontWeight: 500,
+                      letterSpacing: '0.02em',
+                    }}
+                  >
+                    {currentCard.romanization}
+                  </p>
+                )}
+              </div>
+              <TranslationTooltip
+                translation={currentCard.translation || currentCard.back}
+                nativeLanguage={nativeLanguage}
+                placement="right"
+              />
+            </div>
             <p className="nb-text-sm nb-text-muted nb-mt-lg">Tap to flip</p>
           </>
         ) : (
           <>
-            <p className="nb-text nb-text-center nb-mb-md">{currentCard.back}</p>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--nb-space-sm)',
+                justifyContent: 'center',
+                marginBottom: 'var(--nb-space-md)',
+              }}
+            >
+              <p
+                className="nb-text nb-text-center"
+                style={{ margin: 0 }}
+              >
+                {currentCard.back}
+              </p>
+              {currentCard.translation && currentCard.translation !== currentCard.back && (
+                <TranslationTooltip
+                  translation={currentCard.translation}
+                  nativeLanguage={nativeLanguage}
+                  placement="right"
+                  size={16}
+                />
+              )}
+            </div>
             {currentCard.example && (
-              <div style={{
-                background: 'var(--nb-dark-gray)',
-                color: 'var(--nb-white)',
-                padding: 'var(--nb-space-md)',
-                border: '2px solid var(--nb-black)',
-                marginTop: 'var(--nb-space-md)'
-              }}>
-                <div style={{
-                  fontSize: '0.75rem',
-                  fontWeight: '700',
-                  color: 'var(--nb-lime)',
-                  marginBottom: 'var(--nb-space-xs)'
-                }}>
+              <div
+                style={{
+                  background: 'var(--nb-dark-gray)',
+                  color: 'var(--nb-white)',
+                  padding: 'var(--nb-space-md)',
+                  border: '2px solid var(--nb-black)',
+                  marginTop: 'var(--nb-space-md)',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '0.75rem',
+                    fontWeight: '700',
+                    color: 'var(--nb-lime)',
+                    marginBottom: 'var(--nb-space-xs)',
+                  }}
+                >
                   Example:
                 </div>
-                <p style={{ fontStyle: 'italic', margin: 0 }}>"{currentCard.example}"</p>
+                <p style={{ fontStyle: 'italic', margin: 0 }}>
+                  "{currentCard.example}"
+                </p>
               </div>
             )}
           </>

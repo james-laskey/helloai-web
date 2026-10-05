@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { MaterialIcon } from '../landing-page/icons';
+import { AIInconsistencyTooltip } from '../AIInconsistencyTooltip';
 import {
   QUESTION_COUNT_OPTIONS,
   TIMER_OPTIONS,
@@ -98,6 +99,7 @@ export const NinjaSetup = ({
           <h2 className="nb-heading nb-heading-md" style={{ margin: 0 }}>
             Hello Ninja
           </h2>
+          <AIInconsistencyTooltip variant="ninja" />
         </div>
 
         <p className="nb-text nb-text-muted nb-mb-lg">

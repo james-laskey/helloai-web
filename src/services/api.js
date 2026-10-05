@@ -270,6 +270,14 @@ export const api = {
     if (!response.ok) throw new Error(`API returned ${response.status}`);
     return await response.json();
   },
+  savePreferences: async (preferences) => {
+    const response = await authenticatedFetch(
+      `${API_URL}/api/auth/preferences`,
+      { method: 'POST', body: JSON.stringify(preferences) }
+    );
+    if (!response.ok) throw new Error(`API returned ${response.status}`);
+    return await response.json();
+  },
   generateFortuneGame: async (payload) => {
   const response = await authenticatedFetch(
     `${API_URL}/api/fortune/generate`,

@@ -50,6 +50,7 @@ import { ReactComponent as SportsMartialArts } from '@material-design-icons/svg/
 import { ReactComponent as Replay } from '@material-design-icons/svg/filled/replay.svg';
 import { ReactComponent as Casino } from '@material-design-icons/svg/filled/casino.svg';
 import { ReactComponent as Send } from '@material-design-icons/svg/filled/send.svg';
+import { ReactComponent as Info } from '@material-design-icons/svg/filled/info.svg';
 
 // Name-based lookup
 export const ICONS = {
@@ -100,7 +101,8 @@ export const ICONS = {
   SportsMartialArts,
   Replay,
   Casino,
-  Send
+  Send,
+  Info
 };
 
 /**

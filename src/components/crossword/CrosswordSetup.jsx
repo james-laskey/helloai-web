@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MaterialIcon } from '../landing-page/icons';
 import { api } from '../../services/api';
+import { AIInconsistencyTooltip } from '../AIInconsistencyTooltip';
 
 const SENTENCE_COUNT_OPTIONS = [3, 4, 5, 6, 8];
 const DIFFICULTY_OPTIONS = [
@@ -137,6 +138,7 @@ export const CrosswordSetup = ({
           <h2 className="nb-heading nb-heading-md" style={{ margin: 0 }}>
             {hasPrevious ? 'New Crossword' : 'Crossword Puzzle'}
           </h2>
+          <AIInconsistencyTooltip variant="crossword" />
         </div>
 
         <p className="nb-text nb-text-muted nb-mb-lg">

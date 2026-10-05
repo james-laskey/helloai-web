@@ -3,6 +3,7 @@
 import React from 'react';
 import { MaterialIcon } from '../landing-page/icons';
 import { QUESTION_COUNT_OPTIONS, DIFFICULTY_OPTIONS } from './constants';
+import { AIInconsistencyTooltip } from '../AIInconsistencyTooltip';
 
 export const ReadingLessonSetup = ({
   language,
@@ -92,6 +93,7 @@ export const ReadingLessonSetup = ({
           <h2 className="nb-heading nb-heading-md" style={{ margin: 0 }}>
             New Reading Lesson
           </h2>
+          <AIInconsistencyTooltip variant="reading" />
         </div>
 
         <p className="nb-text nb-text-muted nb-mb-lg">

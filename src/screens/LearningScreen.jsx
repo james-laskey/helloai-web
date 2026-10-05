@@ -5,6 +5,7 @@ import { QuizComponent } from '../components/QuizComponent';
 import { CrosswordGame } from '../components/crossword/CrosswordGame';
 import { learningApi } from '../services/learningApi';
 import { MaterialIcon } from '../components/landing-page/icons';
+import { AIInconsistencyTooltip } from '../components/AIInconsistencyTooltip';
 
 export const LearningScreen = ({
   mode, // 'reading' | 'flashcards' | 'quiz' | 'crossword'
@@ -279,6 +280,7 @@ export const LearningScreen = ({
       <div>
         <h2 className="nb-heading nb-heading-lg nb-mb-sm">
           Choose a Flashcard Set
+          <AIInconsistencyTooltip variant="flashcards" placement="right" />
         </h2>
         <p className="nb-text nb-text-muted nb-mb-lg">
           Select from your previous sets or create a new one
@@ -353,10 +355,10 @@ export const LearningScreen = ({
 
     return (
       <div>
-        <h2 className="nb-heading nb-heading-lg nb-mb-sm">Choose a Quiz</h2>
-        <p className="nb-text nb-text-muted nb-mb-lg">
-          Select from your previous quizzes or create a new one
-        </p>
+        <h2 className="nb-heading nb-heading-lg nb-mb-sm">
+          Choose a Quiz
+          <AIInconsistencyTooltip variant="quiz" placement="right" />
+        </h2>
 
         <div className="nb-flex nb-flex-col nb-gap-md nb-mb-lg">
           {previousQuizAttempts.map((item) => (
@@ -472,6 +474,7 @@ export const LearningScreen = ({
             flashcards={flashcards}
             onComplete={handleFlashcardComplete}
             onUpdateMastery={updateFlashcardMastery}
+            nativeLanguage={userPreferences?.nativeLanguage || 'English'}
           />
         );
       }

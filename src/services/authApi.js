@@ -1,10 +1,10 @@
 // services/authApi.js
 
+import { csrfHeaders } from '../utils/csrf';
+
 const API_URL = `${
   process.env.REACT_APP_API_URL || 'https://helloapi-five.vercel.app'
 }/api/auth`;
-
-import { csrfHeaders } from '../utils/csrf';
 
 const credentials = 'include';
 
@@ -87,12 +87,6 @@ export const authApi = {
 
   /* ---------- Current user ---------- */
 
-  /**
-   * Fetches the authenticated user via the httpOnly cookie.
-   * Returns { success, user, preferences } on success.
-   * Refresh is handled automatically by the caller's fetch helper
-   * if the access cookie is expired.
-   */
   me: async () => {
     try {
       const { response, data } = await request('/me', { method: 'GET' });
@@ -110,6 +104,23 @@ export const authApi = {
       console.error('Me API error:', error);
       return { success: false, message: 'Network error.' };
     }
+  },
+
+  /* ---------- Preferences ---------- */
+
+  savePreferences: async (preferences) => {
+    const { response, data } = await request('/preferences', {
+      method: 'POST',
+      body: JSON.stringify(preferences),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        data?.error || `Request failed with status ${response.status}`
+      );
+    }
+
+    return data; // { success: true, preferences: { ... } }
   },
 
   /* ---------- Logout ---------- */
@@ -200,12 +211,6 @@ export const authApi = {
 
   /* ---------- Account deletion ---------- */
 
-  /**
-   * Step 1 of the deletion flow. The backend sends an email with a
-   * confirmation link. Nothing is deleted here.
-   * Returns { success, emailSent, message }.
-   * Throws on HTTP error so the modal can show the message.
-   */
   requestAccountDeletion: async () => {
     const { response, data } = await request('/request-account-deletion', {
       method: 'POST',

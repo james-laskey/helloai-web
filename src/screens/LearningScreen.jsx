@@ -40,7 +40,6 @@ export const LearningScreen = ({
   onLessonProgress,
   onSelectPreviousLesson,
   userId,
-  topicId,
 
   // Streak
   streak,
@@ -60,12 +59,66 @@ export const LearningScreen = ({
   const [loadingPrevious, setLoadingPrevious] = useState(false);
 
   useEffect(() => {
-    if (mode === 'flashcards') {
-      fetchPreviousFlashcardSets();
-    } else if (mode === 'quiz') {
-      fetchPreviousQuizAttempts();
+  if (mode === 'flashcards') {
+    let cancelled = false;
+    (async () => {
+      setLoadingPrevious(true);
+      try {
+        const result = await learningApi.getPreviousFlashcardSets({
+          userId,
+          topicId: selectedTopic.id,
+          language: selectedLanguage,
+        });
+        if (!cancelled && result?.sets) {
+          setPreviousFlashcardSets(result.sets);
+        }
+      } catch (error) {
+        console.error('Error fetching previous flashcard sets:', error);
+      } finally {
+        if (!cancelled) setLoadingPrevious(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }
+
+  if (mode === 'quiz') {
+    let cancelled = false;
+    (async () => {
+      setLoadingPrevious(true);
+      try {
+        const result = await learningApi.getPreviousQuizAttempts({
+          userId,
+          topicId: selectedTopic.id,
+          language: selectedLanguage,
+        });
+        if (!cancelled && result?.quizzes) {
+          setPreviousQuizAttempts(result.quizzes);
+        }
+      } catch (error) {
+        console.error('Error fetching previous quiz attempts:', error);
+      } finally {
+        if (!cancelled) setLoadingPrevious(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }
+}, [mode, userId, selectedTopic?.id, selectedLanguage]);
+
+  // Show the dataset selector when there is no active content for the
+  // current mode. This used to be a setState during render, which React
+  // warns about and can loop.
+  useEffect(() => {
+    if (mode === 'flashcards' && !flashcards && !loading) {
+      setShowDatasetSelector(true);
     }
-  }, [mode]);
+    if (mode === 'quiz' && !quiz && !loading) {
+      setShowDatasetSelector(true);
+    }
+  }, [mode, flashcards, quiz, loading]);
 
   /* ---------- Flashcard data loaders ---------- */
 
@@ -105,17 +158,19 @@ export const LearningScreen = ({
     }
   };
 
-  /* ---------- Flashcard/quiz selection handlers ---------- */
+  /* ---------- Selection handlers ---------- */
 
   const handleUsePreviousFlashcardSet = (set) => {
     setFlashcards(set.cards);
     setFlashcardSetId(set.id);
+    setSubmittedFlashcards(false);
     setShowDatasetSelector(false);
   };
 
   const handleUsePreviousQuiz = (quizData) => {
     setQuiz(quizData.questions);
     setQuizAttemptId(quizData.id);
+    setSubmittedQuiz(false);
     setShowDatasetSelector(false);
   };
 
@@ -123,9 +178,11 @@ export const LearningScreen = ({
     setShowDatasetSelector(false);
     if (mode === 'flashcards') {
       setFlashcards(null);
+      setSubmittedFlashcards(false);
       generateFlashcards();
     } else if (mode === 'quiz') {
       setQuiz(null);
+      setSubmittedQuiz(false);
       generateQuiz();
     }
   };
@@ -146,6 +203,7 @@ export const LearningScreen = ({
       if (result && result.flashcards) {
         setFlashcards(result.flashcards);
         setFlashcardSetId(result.setId);
+        setSubmittedFlashcards(false);
         fetchPreviousFlashcardSets();
       }
     } catch (error) {
@@ -172,6 +230,7 @@ export const LearningScreen = ({
       if (result && result.quiz) {
         setQuiz(result.quiz);
         setQuizAttemptId(result.attemptId);
+        setSubmittedQuiz(false);
         fetchPreviousQuizAttempts();
       }
     } catch (error) {
@@ -183,7 +242,10 @@ export const LearningScreen = ({
 
   /* ---------- Quiz submission ---------- */
 
-  const submitQuizResults = async (answers, score, total) => {
+  // Called by QuizComponent when the last question is answered.
+  // `answers` is the full array of answer objects; the API wants just
+  // the selected strings, in order.
+  const submitQuizResults = async (answers) => {
     if (!quizAttemptId || submittedQuiz) return;
 
     setSubmittedQuiz(true);
@@ -195,9 +257,7 @@ export const LearningScreen = ({
         answers: answers.map((a) => a.selected),
         timeSpent: 0,
       });
-      setQuiz(null);
       fetchPreviousQuizAttempts();
-      // The backend extended the streak during submit-quiz.
       onActivityComplete?.();
     } catch (error) {
       console.error('Error submitting quiz:', error);
@@ -238,9 +298,7 @@ export const LearningScreen = ({
         knownCount,
         totalCount,
       });
-      setFlashcards(null);
       fetchPreviousFlashcardSets();
-      // The backend extended the streak during complete-flashcard-set.
       onActivityComplete?.();
     } catch (error) {
       console.error('Error completing flashcard set:', error);
@@ -249,8 +307,9 @@ export const LearningScreen = ({
 
   /* ---------- Quiz completion ---------- */
 
-  const handleQuizComplete = async (score, total, answers) => {
-    await submitQuizResults(answers, score, total);
+  // Called by QuizComponent's Continue button. Submission already
+  // happened on the last question, so this only navigates.
+  const handleQuizComplete = async () => {
     onBack();
   };
 
@@ -261,7 +320,7 @@ export const LearningScreen = ({
     onBack();
   };
 
-  /* ---------- Flashcard dataset selector ---------- */
+  /* ---------- Dataset selectors ---------- */
 
   const renderFlashcardDatasetSelector = () => {
     if (previousFlashcardSets.length === 0 && !loadingPrevious) {
@@ -338,8 +397,6 @@ export const LearningScreen = ({
     );
   };
 
-  /* ---------- Quiz dataset selector ---------- */
-
   const renderQuizDatasetSelector = () => {
     if (previousQuizAttempts.length === 0 && !loadingPrevious) {
       return (
@@ -350,10 +407,7 @@ export const LearningScreen = ({
           <p className="nb-text nb-text-muted nb-mb-lg">
             Generate your first quiz to get started!
           </p>
-          <button
-            className="nb-button nb-button-primary"
-            onClick={generateQuiz}
-          >
+          <button className="nb-button nb-button-primary" onClick={generateQuiz}>
             Generate New Quiz
           </button>
         </div>
@@ -397,7 +451,9 @@ export const LearningScreen = ({
               </div>
               <span className="nb-text-xs nb-text-muted">
                 {item.completedAt
-                  ? `Completed: ${new Date(item.completedAt).toLocaleDateString()}`
+                  ? `Completed: ${new Date(
+                      item.completedAt
+                    ).toLocaleDateString()}`
                   : `Created: ${new Date(item.createdAt).toLocaleDateString()}`}
               </span>
             </button>
@@ -443,10 +499,6 @@ export const LearningScreen = ({
     }
 
     if (mode === 'flashcards') {
-      if (!flashcards && !loading && !showDatasetSelector) {
-        setShowDatasetSelector(true);
-      }
-
       if (showDatasetSelector && !flashcards) {
         return loadingPrevious ? (
           <div
@@ -488,10 +540,6 @@ export const LearningScreen = ({
     }
 
     if (mode === 'quiz') {
-      if (!quiz && !loading && !showDatasetSelector) {
-        setShowDatasetSelector(true);
-      }
-
       if (showDatasetSelector && !quiz) {
         return loadingPrevious ? (
           <div
@@ -524,9 +572,6 @@ export const LearningScreen = ({
             quiz={quiz}
             onSubmit={submitQuizResults}
             onComplete={handleQuizComplete}
-            attemptId={quizAttemptId}
-            userId={userId}
-            topicId={selectedTopic.id}
           />
         );
       }
@@ -590,7 +635,13 @@ export const LearningScreen = ({
         <h1 className="nb-heading nb-heading-md" style={{ margin: 0 }}>
           {headerTitle}
         </h1>
-        <div style={{ width: '100px', display: 'flex', justifyContent: 'flex-end' }}>
+        <div
+          style={{
+            width: '100px',
+            display: 'flex',
+            justifyContent: 'flex-end',
+          }}
+        >
           <StreakBadge streak={streak} />
         </div>
       </div>

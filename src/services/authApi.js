@@ -1,17 +1,13 @@
 // services/authApi.js
 
+import { AUTH_API_URL } from './authFetch';
 import { csrfHeaders } from '../utils/csrf';
-
-const API_URL = `${
-  process.env.REACT_APP_API_URL || 'https://helloapi-five.vercel.app'
-}/api/auth`;
-
 const credentials = 'include';
 
 async function request(path, options = {}) {
-  const method = options.method || 'GET';
+  const method = (options.method || 'GET').toUpperCase();
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(`${AUTH_API_URL}${path}`, {
     ...options,
     method,
     credentials,
@@ -99,6 +95,7 @@ export const authApi = {
         success: true,
         user: data.user,
         preferences: data.preferences ?? null,
+        streak: data.streak ?? null,
       };
     } catch (error) {
       console.error('Me API error:', error);

@@ -1,5 +1,6 @@
 import React from 'react';
 import { MaterialIcon } from './landing-page/icons';
+import { StreakBadge } from './StreakBadge';
 
 const FEATURES = [
   {
@@ -56,6 +57,7 @@ export const FeatureSelectionScreen = ({
   onToggleStats,
   userStats,
   onFetchStats,
+  streak
 }) => {
   return (
     <div className="nb-container" style={{ background: 'var(--nb-purple)' }}>
@@ -87,6 +89,9 @@ export const FeatureSelectionScreen = ({
           {topic.name}
         </h1>
         <div style={{ width: '100px' }} />
+        <div className="nb-flex nb-gap-sm nb-flex-center">
+          <StreakBadge streak={streak} />
+        </div>
       </div>
 
       {/* Topic header */}

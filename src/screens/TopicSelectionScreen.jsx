@@ -4,6 +4,7 @@ import { StatsModal } from '../components/StatsModal';
 import { SettingsModal } from '../components/SettingsModal';
 import { TopicCard } from '../components/TopicCard';
 import { MaterialIcon } from '../components/landing-page/icons';
+import { StreakBadge } from '../components/StreakBadge';
 
 export const TopicSelectionScreen = ({
   selectedLanguage,
@@ -18,6 +19,7 @@ export const TopicSelectionScreen = ({
   onLogout,
   user,
   onDeleteAccount,
+  streak,
 }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
@@ -66,6 +68,8 @@ export const TopicSelectionScreen = ({
           padding: 'var(--nb-space-md) var(--nb-space-lg)',
           borderBottom: 'var(--nb-border)',
           background: 'var(--nb-white)',
+          gap: 'var(--nb-space-md)',
+          flexWrap: 'wrap',
         }}
       >
         {/* Language Dropdown */}
@@ -142,7 +146,8 @@ export const TopicSelectionScreen = ({
         </div>
 
         {/* Right Actions */}
-        <div className="nb-flex nb-gap-sm">
+        <div className="nb-flex nb-gap-sm nb-flex-center">
+          <StreakBadge streak={streak} />
           <button
             onClick={handleStatsPress}
             className="nb-button"
@@ -153,6 +158,7 @@ export const TopicSelectionScreen = ({
               alignItems: 'center',
               gap: '6px',
             }}
+            aria-label="Open stats"
           >
             <MaterialIcon
               name={isLoadingStats ? 'HourglassEmpty' : 'Insights'}
@@ -169,6 +175,7 @@ export const TopicSelectionScreen = ({
               alignItems: 'center',
               gap: '6px',
             }}
+            aria-label="Open settings"
           >
             <MaterialIcon name="Settings" size={18} color="var(--nb-black)" />
           </button>

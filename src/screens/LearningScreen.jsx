@@ -6,9 +6,10 @@ import { CrosswordGame } from '../components/crossword/CrosswordGame';
 import { learningApi } from '../services/learningApi';
 import { MaterialIcon } from '../components/landing-page/icons';
 import { AIInconsistencyTooltip } from '../components/AIInconsistencyTooltip';
+import { StreakBadge } from '../components/StreakBadge';
 
 export const LearningScreen = ({
-  mode, // 'reading' | 'flashcards' | 'quiz' | 'crossword'
+  mode,
   selectedLanguage,
   selectedTopic,
   userPreferences,
@@ -22,7 +23,7 @@ export const LearningScreen = ({
   onRetryLesson,
   onLessonComplete,
 
-  // Audio props (shared with ReadingLesson)
+  // Audio props
   speakText,
   stopSpeaking,
   isSpeaking,
@@ -40,6 +41,10 @@ export const LearningScreen = ({
   onSelectPreviousLesson,
   userId,
   topicId,
+
+  // Streak
+  streak,
+  onActivityComplete,
 }) => {
   const [flashcards, setFlashcards] = useState(null);
   const [quiz, setQuiz] = useState(null);
@@ -81,8 +86,6 @@ export const LearningScreen = ({
       setLoadingPrevious(false);
     }
   };
-
-  /* ---------- Quiz data loaders ---------- */
 
   const fetchPreviousQuizAttempts = async () => {
     setLoadingPrevious(true);
@@ -194,6 +197,8 @@ export const LearningScreen = ({
       });
       setQuiz(null);
       fetchPreviousQuizAttempts();
+      // The backend extended the streak during submit-quiz.
+      onActivityComplete?.();
     } catch (error) {
       console.error('Error submitting quiz:', error);
     }
@@ -235,6 +240,8 @@ export const LearningScreen = ({
       });
       setFlashcards(null);
       fetchPreviousFlashcardSets();
+      // The backend extended the streak during complete-flashcard-set.
+      onActivityComplete?.();
     } catch (error) {
       console.error('Error completing flashcard set:', error);
     }
@@ -410,7 +417,6 @@ export const LearningScreen = ({
   /* ---------- Content router ---------- */
 
   const renderContent = () => {
-    /* ========== READING LESSON ========== */
     if (mode === 'reading') {
       return (
         <ReadingLesson
@@ -436,7 +442,6 @@ export const LearningScreen = ({
       );
     }
 
-    /* ========== FLASHCARDS ========== */
     if (mode === 'flashcards') {
       if (!flashcards && !loading && !showDatasetSelector) {
         setShowDatasetSelector(true);
@@ -482,7 +487,6 @@ export const LearningScreen = ({
       return null;
     }
 
-    /* ========== QUIZ ========== */
     if (mode === 'quiz') {
       if (!quiz && !loading && !showDatasetSelector) {
         setShowDatasetSelector(true);
@@ -530,7 +534,6 @@ export const LearningScreen = ({
       return null;
     }
 
-    /* ========== CROSSWORD ========== */
     if (mode === 'crossword') {
       return (
         <CrosswordGame
@@ -540,14 +543,13 @@ export const LearningScreen = ({
           topicName={selectedTopic?.name}
           userPreferences={userPreferences}
           onBack={handleBack}
+          onActivityComplete={onActivityComplete}
         />
       );
     }
 
     return null;
   };
-
-  /* ---------- Header title based on mode ---------- */
 
   const headerTitle =
     mode === 'reading'
@@ -562,7 +564,6 @@ export const LearningScreen = ({
 
   return (
     <div className="nb-container" style={{ background: 'var(--nb-purple)' }}>
-      {/* Header */}
       <div
         style={{
           display: 'flex',
@@ -589,10 +590,11 @@ export const LearningScreen = ({
         <h1 className="nb-heading nb-heading-md" style={{ margin: 0 }}>
           {headerTitle}
         </h1>
-        <div style={{ width: '100px' }} />
+        <div style={{ width: '100px', display: 'flex', justifyContent: 'flex-end' }}>
+          <StreakBadge streak={streak} />
+        </div>
       </div>
 
-      {/* Content */}
       <div style={{ padding: 'var(--nb-space-lg)', flex: 1 }}>
         {renderContent()}
       </div>

@@ -42,6 +42,9 @@ const App = () => {
   const [isTopicSet, setIsTopicSet] = useState(false);
   const [learningMode, setLearningMode] = useState(null);
 
+  /* -------- Streak -------- */
+  const [streak, setStreak] = useState(null);
+
   /* -------- Reading lesson state -------- */
   const [lesson, setLesson] = useState(null);
   const [isLessonLoading, setIsLessonLoading] = useState(false);
@@ -94,6 +97,10 @@ const App = () => {
       } else {
         setShowQuestionnaire(true);
       }
+
+      if (result.streak) {
+        setStreak(result.streak);
+      }
     } catch (error) {
       console.warn('[bootstrap] no session', error?.message || error);
       setIsAuthenticated(false);
@@ -115,6 +122,10 @@ const App = () => {
         setSelectedLanguage(result.preferences.targetLanguage || 'Spanish');
       }
 
+      if (result.streak) {
+        setStreak(result.streak);
+      }
+
       return result;
     } catch (err) {
       console.error('hydrateUser failed:', err);
@@ -123,8 +134,24 @@ const App = () => {
   };
 
   /**
+   * Refreshes the streak from the backend. Called after any activity
+   * that should extend the streak (lesson complete, quiz submitted,
+   * game finished) so the badge reflects the new value immediately.
+   */
+  const refreshStreak = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const result = await api.fetchCurrentUser();
+      if (result?.streak) {
+        setStreak(result.streak);
+      }
+    } catch (err) {
+      console.warn('refreshStreak failed (non-fatal):', err);
+    }
+  }, [userId]);
+
+  /**
    * Resets all client state to the unauthenticated baseline.
-   * Called on logout and after account deletion is confirmed.
    */
   const resetClientState = useCallback(() => {
     setIsAuthenticated(false);
@@ -140,19 +167,10 @@ const App = () => {
     setLesson(null);
     setLessonError(null);
     setPendingLessonConfig(null);
+    setStreak(null);
     lastProgressSaveRef.current = 0;
   }, []);
 
-  /**
-   * Request account deletion. This is step 1 of a two-step flow:
-   *   1. This function asks the backend to email a confirmation link.
-   *   2. The user clicks the link in their inbox, which actually deletes
-   *      the account on the backend.
-   *
-   * Because the account is NOT deleted here, we do NOT reset client
-   * state. The user is still logged in until they confirm via email.
-   * Returns the response so the SettingsModal can inspect `emailSent`.
-   */
   const handleDeleteAccount = async () => {
     try {
       const result = await authApi.requestAccountDeletion();
@@ -185,6 +203,9 @@ const App = () => {
     setUserPreferences(preferences);
     setSelectedLanguage(preferences.targetLanguage);
     setShowQuestionnaire(false);
+    // Hydrate once more so the streak is pulled for the newly chosen
+    // language (the row might not exist yet).
+    await hydrateUser();
   };
 
   const handleUpdatePreferences = async (newPreferences) => {
@@ -196,6 +217,8 @@ const App = () => {
     setUserPreferences(newPreferences);
     if (newPreferences.targetLanguage !== selectedLanguage) {
       setSelectedLanguage(newPreferences.targetLanguage);
+      // Switching languages means a different streak row.
+      await refreshStreak();
     }
   };
 
@@ -289,6 +312,7 @@ const App = () => {
     lastProgressSaveRef.current = 0;
     stopSpeaking();
     fetchStats();
+    refreshStreak();
   };
 
   const handleBackToFeatures = () => {
@@ -300,6 +324,7 @@ const App = () => {
     lastProgressSaveRef.current = 0;
     stopSpeaking();
     fetchStats();
+    refreshStreak();
     setIsFeatureSelected(true);
   };
 
@@ -403,6 +428,9 @@ const App = () => {
     } catch (err) {
       console.error('Error submitting lesson results:', err);
     }
+    // The backend updated the streak during submit-lesson. Pull the
+    // new value before navigating back so the badge reflects it.
+    await refreshStreak();
     handleBackToFeatures();
   };
 
@@ -449,8 +477,6 @@ const App = () => {
     );
   }
 
-  /* -------- Ninja mode -------- */
-
   if (isTopicSet && learningMode === 'ninja') {
     return (
       <div className="nb-container" style={{ background: 'var(--nb-purple)' }}>
@@ -479,11 +505,13 @@ const App = () => {
             topicId={selectedTopic?.id}
             topicName={selectedTopic?.name}
             onBack={handleBackToFeatures}
+            onActivityComplete={refreshStreak}
           />
         </div>
       </div>
     );
   }
+
   if (isTopicSet && learningMode === 'fortune') {
     return (
       <div className="nb-container" style={{ background: 'var(--nb-purple)' }}>
@@ -512,13 +540,12 @@ const App = () => {
             topicId={selectedTopic?.id}
             topicName={selectedTopic?.name}
             onBack={handleBackToFeatures}
+            onActivityComplete={refreshStreak}
           />
         </div>
       </div>
     );
   }
-
-  /* -------- Other learning modes -------- */
 
   if (isTopicSet) {
     return (
@@ -548,11 +575,11 @@ const App = () => {
         onFetchStats={fetchStats}
         onSelectPreviousLesson={handleSelectPreviousLesson}
         userId={userId}
+        streak={streak}
+        onActivityComplete={refreshStreak}
       />
     );
   }
-
-  /* -------- Feature picker -------- */
 
   if (isFeatureSelected && selectedTopic) {
     return (
@@ -565,11 +592,10 @@ const App = () => {
         showStats={showStats}
         onToggleStats={toggleStats}
         onFetchStats={fetchStats}
+        streak={streak}
       />
     );
   }
-
-  /* -------- Topic picker -------- */
 
   return (
     <TopicSelectionScreen
@@ -585,6 +611,7 @@ const App = () => {
       onLogout={handleLogout}
       user={userData}
       onDeleteAccount={handleDeleteAccount}
+      streak={streak}
     />
   );
 };

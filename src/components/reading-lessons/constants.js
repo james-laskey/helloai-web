@@ -1,4 +1,5 @@
-export const QUESTION_COUNT_OPTIONS = [3, 4, 5, 6, 8, 10];
+export const SECTION_COUNT_OPTIONS = [1, 2, 3, 4, 5, 6];
+export const QUESTIONS_PER_SECTION_OPTIONS = [1, 2, 3, 4, 5, 6, 8];
 
 export const DIFFICULTY_OPTIONS = [
   {
@@ -10,13 +11,13 @@ export const DIFFICULTY_OPTIONS = [
   {
     value: 'medium',
     label: 'Medium',
-    description: 'Everyday conversation level',
+    description: 'Everyday textbook level',
     color: 'var(--nb-yellow)',
   },
   {
     value: 'hard',
     label: 'Hard',
-    description: 'Richer vocabulary, longer sentences',
+    description: 'Richer vocabulary, longer prose',
     color: 'var(--nb-orange)',
   },
   {

@@ -60,7 +60,7 @@ export const FeatureSelectionScreen = ({
   streak
 }) => {
   return (
-    <div className="nb-container" style={{ background: 'var(--nb-purple)' }}>
+    <div className="nb-container">
       {/* Header */}
       <div
         style={{
@@ -99,7 +99,7 @@ export const FeatureSelectionScreen = ({
         style={{
           padding: 'var(--nb-space-xl) var(--nb-space-lg)',
           textAlign: 'center',
-          background: 'var(--nb-yellow)',
+          background: 'var(--nb-purple)',
           borderBottom: 'var(--nb-border)',
         }}
       >

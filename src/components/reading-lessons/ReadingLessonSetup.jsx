@@ -1,8 +1,10 @@
-// src/components/reading-lesson-components/ReadingLessonSetup.jsx
-
 import React from 'react';
 import { MaterialIcon } from '../landing-page/icons';
-import { QUESTION_COUNT_OPTIONS, DIFFICULTY_OPTIONS } from './constants';
+import {
+  SECTION_COUNT_OPTIONS,
+  QUESTIONS_PER_SECTION_OPTIONS,
+  DIFFICULTY_OPTIONS,
+} from './constants';
 import { AIInconsistencyTooltip } from '../AIInconsistencyTooltip';
 
 export const ReadingLessonSetup = ({
@@ -18,8 +20,7 @@ export const ReadingLessonSetup = ({
   onSelectPrevious,
 }) => {
   return (
-    <div style={{ maxWidth: '700px', margin: '0 auto' }}>
-      {/* Previous lessons */}
+    <div style={{ maxWidth: '760px', margin: '0 auto' }}>
       {(loadingPrevious || previousAttempts.length > 0) && (
         <div
           className="nb-card nb-mb-lg"
@@ -49,25 +50,16 @@ export const ReadingLessonSetup = ({
                   }}
                 >
                   <div className="nb-flex nb-flex-between nb-flex-center nb-mb-sm">
-                    <span
-                      className="nb-heading nb-heading-sm"
-                      style={{ margin: 0 }}
-                    >
+                    <span className="nb-heading nb-heading-sm" style={{ margin: 0 }}>
                       {attempt.title}
                     </span>
-                    <span
-                      className="nb-badge"
-                      style={{ background: 'var(--nb-lime)' }}
-                    >
+                    <span className="nb-badge" style={{ background: 'var(--nb-lime)' }}>
                       {attempt.score}%
                     </span>
                   </div>
                   <div className="nb-flex nb-gap-md nb-flex-wrap">
                     <span className="nb-text-xs nb-text-muted">
                       {attempt.correctCount}/{attempt.totalQuestions} correct
-                    </span>
-                    <span className="nb-text-xs nb-text-muted">
-                      {attempt.sentencesCount} sentences
                     </span>
                     <span className="nb-text-xs nb-text-muted">
                       Completed{' '}
@@ -83,62 +75,28 @@ export const ReadingLessonSetup = ({
         </div>
       )}
 
-      {/* New lesson setup */}
-      <div
-        className="nb-card"
-        style={{ background: 'var(--nb-white)' }}
-      >
+      <div className="nb-card" style={{ background: 'var(--nb-white)' }}>
         <div className="nb-flex nb-flex-center nb-gap-sm nb-mb-md">
           <MaterialIcon name="MenuBook" size={28} color="var(--nb-black)" />
           <h2 className="nb-heading nb-heading-md" style={{ margin: 0 }}>
-            New Reading Lesson
+            New Academic Reading Lesson
           </h2>
           <AIInconsistencyTooltip variant="reading" />
         </div>
 
         <p className="nb-text nb-text-muted nb-mb-lg">
-          Choose how many questions you want and how difficult the lesson
-          should be. The AI will build a custom passage for {language}.
+          The AI writes a textbook-style passage for {language}, split into
+          sections. Choose how many sections to study and how many questions
+          to answer per section.
         </p>
 
-        <div className="nb-mb-lg">
-          <label className="nb-label">Number of questions</label>
-          <div className="nb-flex nb-gap-sm nb-flex-wrap">
-            {QUESTION_COUNT_OPTIONS.map((n) => {
-              const selected = config.questionCount === n;
-              return (
-                <button
-                  key={n}
-                  onClick={() =>
-                    setConfig((c) => ({ ...c, questionCount: n }))
-                  }
-                  className="nb-button"
-                  style={{
-                    minWidth: '56px',
-                    padding: 'var(--nb-space-sm) var(--nb-space-md)',
-                    background: selected
-                      ? 'var(--nb-lime)'
-                      : 'var(--nb-white)',
-                    boxShadow: selected
-                      ? 'var(--nb-shadow-hover)'
-                      : 'var(--nb-shadow-sm)',
-                    fontWeight: 700,
-                  }}
-                >
-                  {n}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
+        {/* Difficulty */}
         <div className="nb-mb-lg">
           <label className="nb-label">Difficulty</label>
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns:
-                'repeat(auto-fit, minmax(140px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
               gap: 'var(--nb-space-sm)',
             }}
           >
@@ -156,9 +114,7 @@ export const ReadingLessonSetup = ({
                     alignItems: 'flex-start',
                     gap: '4px',
                     padding: 'var(--nb-space-md)',
-                    background: selected
-                      ? option.color
-                      : 'var(--nb-white)',
+                    background: selected ? option.color : 'var(--nb-white)',
                     border: 'var(--nb-border)',
                     boxShadow: selected
                       ? 'var(--nb-shadow-hover)'
@@ -176,6 +132,70 @@ export const ReadingLessonSetup = ({
               );
             })}
           </div>
+        </div>
+
+        {/* Number of sections */}
+        <div className="nb-mb-lg">
+          <label className="nb-label">Number of sections</label>
+          <div className="nb-flex nb-gap-sm nb-flex-wrap">
+            {SECTION_COUNT_OPTIONS.map((n) => {
+              const selected = config.sectionCount === n;
+              return (
+                <button
+                  key={n}
+                  onClick={() =>
+                    setConfig((c) => ({ ...c, sectionCount: n }))
+                  }
+                  className="nb-button"
+                  style={{
+                    minWidth: '56px',
+                    padding: 'var(--nb-space-sm) var(--nb-space-md)',
+                    background: selected ? 'var(--nb-lime)' : 'var(--nb-white)',
+                    boxShadow: selected
+                      ? 'var(--nb-shadow-hover)'
+                      : 'var(--nb-shadow-sm)',
+                    fontWeight: 700,
+                  }}
+                >
+                  {n}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Questions per section */}
+        <div className="nb-mb-lg">
+          <label className="nb-label">Questions per section</label>
+          <div className="nb-flex nb-gap-sm nb-flex-wrap">
+            {QUESTIONS_PER_SECTION_OPTIONS.map((n) => {
+              const selected = config.questionsPerSection === n;
+              return (
+                <button
+                  key={n}
+                  onClick={() =>
+                    setConfig((c) => ({ ...c, questionsPerSection: n }))
+                  }
+                  className="nb-button"
+                  style={{
+                    minWidth: '56px',
+                    padding: 'var(--nb-space-sm) var(--nb-space-md)',
+                    background: selected ? 'var(--nb-lime)' : 'var(--nb-white)',
+                    boxShadow: selected
+                      ? 'var(--nb-shadow-hover)'
+                      : 'var(--nb-shadow-sm)',
+                    fontWeight: 700,
+                  }}
+                >
+                  {n}
+                </button>
+              );
+            })}
+          </div>
+          <p className="nb-text-xs nb-text-muted nb-mt-sm">
+            Each section mixes multiple-choice, fill-in-the-blank, and matching
+            questions.
+          </p>
         </div>
 
         {generationError && (
@@ -207,11 +227,7 @@ export const ReadingLessonSetup = ({
               </span>
             ) : (
               <>
-                <MaterialIcon
-                  name="PlayArrow"
-                  size={20}
-                  color="var(--nb-white)"
-                />
+                <MaterialIcon name="PlayArrow" size={20} color="var(--nb-white)" />
                 Start Lesson
               </>
             )}

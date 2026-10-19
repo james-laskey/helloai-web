@@ -10,6 +10,7 @@ export const ReadingLesson = ({
   topicId,
   speakText,
   stopSpeaking,
+  isSpeaking,
   isMuted,
   onToggleMute,
   activeSentenceIndex,
@@ -23,15 +24,16 @@ export const ReadingLesson = ({
   onRetry,
 }) => {
   const [started, setStarted] = useState(false);
+  // Matches ReadingLessonSetup's controls.
   const [config, setConfig] = useState({
-    questionCount: 4,
+    sectionCount: 3,
+    questionsPerSection: 3,
     difficulty: 'adaptive',
   });
 
   const [previousAttempts, setPreviousAttempts] = useState([]);
   const [loadingPrevious, setLoadingPrevious] = useState(false);
 
-  // Fetch previous attempts when the component mounts or the topic changes
   useEffect(() => {
     if (!userId || !topicId) return;
 
@@ -45,7 +47,6 @@ export const ReadingLesson = ({
           topicId,
           language,
         });
-        console.log('Previous lessons fetched:', result);
         if (!cancelled) {
           setPreviousAttempts(result?.attempts ?? []);
         }
@@ -63,17 +64,17 @@ export const ReadingLesson = ({
     };
   }, [userId, topicId, language]);
 
-  // If a lesson arrives, show the player
   useEffect(() => {
     if (lesson) setStarted(true);
   }, [lesson]);
 
-  // Reset when the parent clears the lesson
+  // Only reset when there is no lesson AND no generation in flight AND
+  // no error. Previously this also reset during an error flash.
   useEffect(() => {
-    if (!lesson && !isGenerating) {
+    if (!lesson && !isGenerating && !generationError) {
       setStarted(false);
     }
-  }, [lesson, isGenerating]);
+  }, [lesson, isGenerating, generationError]);
 
   const handleConfirm = () => {
     setStarted(true);
@@ -110,7 +111,8 @@ export const ReadingLesson = ({
         <div className="nb-spinner" />
         <p className="nb-mt-md">Generating your reading lesson...</p>
         <p className="nb-text-sm nb-text-muted">
-          {config.questionCount} questions · {config.difficulty}
+          {config.sectionCount} sections · {config.questionsPerSection}{' '}
+          questions each · {config.difficulty}
         </p>
       </div>
     );
@@ -148,6 +150,7 @@ export const ReadingLesson = ({
       language={language}
       speakText={speakText}
       stopSpeaking={stopSpeaking}
+      isSpeaking={isSpeaking}
       isMuted={isMuted}
       onToggleMute={onToggleMute}
       activeSentenceIndex={activeSentenceIndex}

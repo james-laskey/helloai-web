@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { LANGUAGE_TOPICS } from '../constants/languageTopics';
 import { StatsModal } from '../components/StatsModal';
 import { SettingsModal } from '../components/SettingsModal';
 import { TopicCard } from '../components/TopicCard';
 import { MaterialIcon } from '../components/landing-page/icons';
 import { StreakBadge } from '../components/StreakBadge';
+
+const FIRST_LANGUAGE = Object.keys(LANGUAGE_TOPICS)[0] || 'Spanish';
 
 export const TopicSelectionScreen = ({
   selectedLanguage,
@@ -25,6 +27,14 @@ export const TopicSelectionScreen = ({
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
 
+  // If no language is selected yet, pick the first one so the screen
+  // can render and so downstream screens have a language.
+  useEffect(() => {
+    if (!selectedLanguage && FIRST_LANGUAGE) {
+      onSelectLanguage(FIRST_LANGUAGE);
+    }
+  }, [selectedLanguage, onSelectLanguage]);
+
   const currentLanguageData = LANGUAGE_TOPICS[selectedLanguage];
   const topics = currentLanguageData?.topics || [];
 
@@ -41,7 +51,7 @@ export const TopicSelectionScreen = ({
   };
 
   return (
-    <div className="nb-container" style={{ background: 'var(--nb-purple)' }}>
+    <div className="nb-container" >
       <StatsModal
         visible={showStats}
         onClose={onToggleStats}
@@ -59,7 +69,6 @@ export const TopicSelectionScreen = ({
         onDeleteAccount={onDeleteAccount}
       />
 
-      {/* Top Bar */}
       <div
         style={{
           display: 'flex',
@@ -72,7 +81,6 @@ export const TopicSelectionScreen = ({
           flexWrap: 'wrap',
         }}
       >
-        {/* Language Dropdown */}
         <div style={{ position: 'relative' }}>
           <button
             onClick={() => setShowLanguageMenu(!showLanguageMenu)}
@@ -85,7 +93,7 @@ export const TopicSelectionScreen = ({
             }}
           >
             <MaterialIcon name="Public" size={18} color="var(--nb-black)" />
-            {selectedLanguage}
+            {selectedLanguage || FIRST_LANGUAGE}
             <MaterialIcon name="ArrowDropDown" size={18} color="var(--nb-black)" />
           </button>
 
@@ -145,7 +153,6 @@ export const TopicSelectionScreen = ({
           )}
         </div>
 
-        {/* Right Actions */}
         <div className="nb-flex nb-gap-sm nb-flex-center">
           <StreakBadge streak={streak} />
           <button
@@ -182,12 +189,11 @@ export const TopicSelectionScreen = ({
         </div>
       </div>
 
-      {/* Header */}
       <div
         style={{
           padding: 'var(--nb-space-xl) var(--nb-space-lg)',
           textAlign: 'center',
-          background: 'var(--nb-yellow)',
+          background: 'var(--nb-purple)',
           borderBottom: 'var(--nb-border)',
         }}
       >
@@ -202,14 +208,13 @@ export const TopicSelectionScreen = ({
           }}
         >
           <MaterialIcon name="Translate" size={40} color="var(--nb-black)" />
-          {selectedLanguage}
+          {selectedLanguage || FIRST_LANGUAGE}
         </h1>
         <p className="nb-text nb-text-muted nb-mt-sm">
           Choose a topic to practice
         </p>
       </div>
 
-      {/* Topics Grid */}
       <div
         style={{
           padding: 'var(--nb-space-lg)',

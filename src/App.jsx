@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AuthScreen } from './screens/AuthScreen';
 import { QuestionnaireScreen } from './screens/QuestionnaireScreen';
+import { LanguageSelectionScreen } from './components/LanguageSelectionScreen';
 import { TopicSelectionScreen } from './screens/TopicSelectionScreen';
 import { FeatureSelectionScreen } from './components/FeatureSelectionScreen';
 import { LearningScreen } from './screens/LearningScreen';
@@ -8,6 +9,7 @@ import { NinjaGame } from './components/ninja/NinjaGame';
 import { FortuneGame } from './components/fortune/FortuneGame';
 import { api } from './services/api';
 import { authApi } from './services/authApi';
+import { LANGUAGE_TOPICS } from './constants/languageTopics';
 
 const LANGUAGE_SPEECH_CODES = {
   English: 'en-US',
@@ -24,19 +26,27 @@ const LANGUAGE_SPEECH_CODES = {
   Hindi: 'hi-IN',
 };
 
+const DEFAULT_LANGUAGE = Object.keys(LANGUAGE_TOPICS)[0] || 'Spanish';
 const PROGRESS_SAVE_INTERVAL_MS = 15_000;
 
 const App = () => {
   /* -------- Auth + user -------- */
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isHydrating, setIsHydrating] = useState(true);
-  const [showQuestionnaire, setShowQuestionnaire] = useState(false);
   const [userData, setUserData] = useState(null);
   const [userPreferences, setUserPreferences] = useState(null);
   const [userId, setUserId] = useState(null);
 
+  /* -------- Onboarding --------
+   * null = done (or not needed).
+   * 'questionnaire' = first step (native language + goals).
+   * 'language' = second step (pick target language).
+   */
+  const [onboardingStep, setOnboardingStep] = useState(null);
+  const [onboardingData, setOnboardingData] = useState(null);
+
   /* -------- Language + navigation -------- */
-  const [selectedLanguage, setSelectedLanguage] = useState('Spanish');
+  const [selectedLanguage, setSelectedLanguage] = useState(null);
   const [selectedTopic, setSelectedTopic] = useState(null);
   const [isFeatureSelected, setIsFeatureSelected] = useState(false);
   const [isTopicSet, setIsTopicSet] = useState(false);
@@ -90,12 +100,25 @@ const App = () => {
       setUserId(result.user.id);
       setIsAuthenticated(true);
 
-      if (result.preferences) {
-        setUserPreferences(result.preferences);
-        setSelectedLanguage(result.preferences.targetLanguage || 'Spanish');
-        setShowQuestionnaire(false);
+      const prefs = result.preferences;
+
+      if (!prefs) {
+        // Brand-new user: start onboarding.
+        setOnboardingStep('questionnaire');
+        setOnboardingData(null);
+      } else if (!prefs.targetLanguage) {
+        // They finished the questionnaire but not the language step.
+        setOnboardingStep('language');
+        setOnboardingData({
+          nativeLanguage: prefs.nativeLanguage,
+          learningGoals: prefs.learningGoals ?? [],
+        });
+        setUserPreferences(prefs);
       } else {
-        setShowQuestionnaire(true);
+        setUserPreferences(prefs);
+        setSelectedLanguage(prefs.targetLanguage);
+        setOnboardingStep(null);
+        setOnboardingData(null);
       }
 
       if (result.streak) {
@@ -119,7 +142,9 @@ const App = () => {
 
       if (result.preferences) {
         setUserPreferences(result.preferences);
-        setSelectedLanguage(result.preferences.targetLanguage || 'Spanish');
+        if (result.preferences.targetLanguage) {
+          setSelectedLanguage(result.preferences.targetLanguage);
+        }
       }
 
       if (result.streak) {
@@ -133,11 +158,6 @@ const App = () => {
     }
   };
 
-  /**
-   * Refreshes the streak from the backend. Called after any activity
-   * that should extend the streak (lesson complete, quiz submitted,
-   * game finished) so the badge reflects the new value immediately.
-   */
   const refreshStreak = useCallback(async () => {
     if (!userId) return;
     try {
@@ -150,16 +170,14 @@ const App = () => {
     }
   }, [userId]);
 
-  /**
-   * Resets all client state to the unauthenticated baseline.
-   */
   const resetClientState = useCallback(() => {
     setIsAuthenticated(false);
-    setShowQuestionnaire(false);
     setUserData(null);
     setUserPreferences(null);
     setUserId(null);
-    setSelectedLanguage('Spanish');
+    setOnboardingStep(null);
+    setOnboardingData(null);
+    setSelectedLanguage(null);
     setSelectedTopic(null);
     setIsFeatureSelected(false);
     setIsTopicSet(false);
@@ -186,25 +204,46 @@ const App = () => {
     setUserId(user.id);
     setIsAuthenticated(true);
 
-    const result = await hydrateUser();
-    if (result?.preferences) {
-      setShowQuestionnaire(false);
-    } else {
-      setShowQuestionnaire(true);
-    }
+    // Re-run the same decision tree as bootstrap so a returning user
+    // is routed correctly and a new one starts onboarding.
+    await bootstrap();
   };
 
-  const handleQuestionnaireComplete = async (preferences) => {
+  /**
+   * Step 1 done: keep the answers, move to step 2 (pick language).
+   */
+  const handleQuestionnaireComplete = (data) => {
+    setOnboardingData({
+      nativeLanguage: data.nativeLanguage,
+      learningGoals: data.learningGoals,
+    });
+    setOnboardingStep('language');
+  };
+
+  /**
+   * Step 2 done: persist everything (now including targetLanguage) and
+   * enter the app.
+   */
+  const handleLanguageSelected = async (data) => {
+    const preferences = {
+      nativeLanguage: data.nativeLanguage,
+      learningGoals: data.learningGoals,
+      learningStyle: data.learningStyle ?? null,
+      targetLanguage: data.targetLanguage,
+    };
+
     try {
       await api.savePreferences(preferences);
     } catch (err) {
       console.error('Failed to save preferences to backend:', err);
     }
+
     setUserPreferences(preferences);
     setSelectedLanguage(preferences.targetLanguage);
-    setShowQuestionnaire(false);
-    // Hydrate once more so the streak is pulled for the newly chosen
-    // language (the row might not exist yet).
+    setOnboardingStep(null);
+    setOnboardingData(null);
+
+    // Pull the streak for the newly chosen language.
     await hydrateUser();
   };
 
@@ -215,9 +254,11 @@ const App = () => {
       console.error('Failed to update preferences on backend:', err);
     }
     setUserPreferences(newPreferences);
-    if (newPreferences.targetLanguage !== selectedLanguage) {
+    if (
+      newPreferences.targetLanguage &&
+      newPreferences.targetLanguage !== selectedLanguage
+    ) {
       setSelectedLanguage(newPreferences.targetLanguage);
-      // Switching languages means a different streak row.
       await refreshStreak();
     }
   };
@@ -241,19 +282,23 @@ const App = () => {
       let rate = 0.9;
       let pitch = 1.0;
 
-      if (userPreferences) {
+      if (
+        userPreferences &&
+        typeof userPreferences.proficiencyLevel === 'number'
+      ) {
         if (userPreferences.proficiencyLevel <= 3) rate = 0.6;
         else if (userPreferences.proficiencyLevel <= 6) rate = 0.8;
-
-        if (
-          userPreferences.targetLanguage === 'Japanese' ||
-          userPreferences.targetLanguage === 'Korean'
-        ) {
-          pitch = 1.05;
-        }
       }
 
-      utterance.lang = lang || LANGUAGE_SPEECH_CODES[selectedLanguage] || 'en-US';
+      if (
+        selectedLanguage === 'Japanese' ||
+        selectedLanguage === 'Korean'
+      ) {
+        pitch = 1.05;
+      }
+
+      utterance.lang =
+        lang || LANGUAGE_SPEECH_CODES[selectedLanguage] || 'en-US';
       utterance.rate = rate;
       utterance.pitch = pitch;
 
@@ -330,24 +375,56 @@ const App = () => {
 
   /* -------- Reading lesson flow -------- */
 
-  const handleGenerateLesson = async ({ questionCount, difficulty }) => {
-    setPendingLessonConfig({ questionCount, difficulty });
+  const handleGenerateLesson = async ({
+    questionCount,         // legacy alias, may be absent
+    questionsPerSection,
+    sectionCount,
+    difficulty,
+    language,
+  } = {}) => {
+    const lessonLanguage = language || selectedLanguage || DEFAULT_LANGUAGE;
+
+    // Resolve the per-section question count. Setup sends
+    // questionsPerSection; older callers may send questionCount.
+    const resolvedPerSection =
+      typeof questionsPerSection === 'number'
+        ? questionsPerSection
+        : typeof questionCount === 'number'
+        ? questionCount
+        : 3;
+
+    const resolvedSectionCount =
+      typeof sectionCount === 'number' ? sectionCount : 3;
+
+    const resolvedDifficulty = difficulty || 'adaptive';
+
+    setPendingLessonConfig({
+      sectionCount: resolvedSectionCount,
+      questionsPerSection: resolvedPerSection,
+      difficulty: resolvedDifficulty,
+      language: lessonLanguage,
+    });
     setIsLessonLoading(true);
     setLessonError(null);
     setLesson(null);
     lastProgressSaveRef.current = 0;
 
+    if (lessonLanguage !== selectedLanguage) {
+      setSelectedLanguage(lessonLanguage);
+    }
+
     try {
       const data = await api.generateLesson({
         userId,
-        language: selectedLanguage,
+        language: lessonLanguage,
         topicId: selectedTopic.id,
         topicName: selectedTopic.name,
         topicConcept: selectedTopic.concept,
         topicExample: selectedTopic.example,
         userPreferences,
-        questionCount,
-        difficulty,
+        sectionCount: resolvedSectionCount,
+        questionsPerSection: resolvedPerSection,
+        difficulty: resolvedDifficulty,
       });
 
       if (!data || !data.lesson) throw new Error('No lesson returned');
@@ -362,9 +439,9 @@ const App = () => {
     }
   };
 
-  const handleRetryLesson = () => {
-    if (pendingLessonConfig) handleGenerateLesson(pendingLessonConfig);
-  };
+    const handleRetryLesson = () => {
+      if (pendingLessonConfig) handleGenerateLesson(pendingLessonConfig);
+    };
 
   const handleSelectPreviousLesson = (attempt) => {
     if (!attempt?.lesson) return;
@@ -407,6 +484,12 @@ const App = () => {
     [lesson?.lessonId, userId, selectedLanguage, selectedTopic?.id]
   );
 
+  /**
+   * Called by the reading screen when the lesson is finished. Persists
+   * results and refreshes the streak, but does NOT navigate away —
+   * ReadingLessonScreen shows the celebration and calls onBack after
+   * the user continues.
+   */
   const handleLessonComplete = async (results) => {
     try {
       if (lesson?.lessonId) {
@@ -418,6 +501,7 @@ const App = () => {
           answers: results.answers,
           correctCount: results.correctCount,
           totalQuestions: results.totalQuestions,
+          score: results.score,
           audioMetrics: results.audioMetrics ?? {
             sentencesPlayed: results.sentencesPlayed ?? 0,
             wordsPlayed: results.wordsPlayed ?? 0,
@@ -428,10 +512,10 @@ const App = () => {
     } catch (err) {
       console.error('Error submitting lesson results:', err);
     }
-    // The backend updated the streak during submit-lesson. Pull the
-    // new value before navigating back so the badge reflects it.
     await refreshStreak();
-    handleBackToFeatures();
+    // Do NOT navigate. The celebration calls onBack when the user
+    // clicks Continue.
+    return results;
   };
 
   /* -------- Stats -------- */
@@ -468,11 +552,22 @@ const App = () => {
     return <AuthScreen onAuthComplete={handleAuthComplete} />;
   }
 
-  if (showQuestionnaire) {
+  if (onboardingStep === 'questionnaire') {
     return (
       <QuestionnaireScreen
         userData={userData}
         onComplete={handleQuestionnaireComplete}
+      />
+    );
+  }
+
+  if (onboardingStep === 'language') {
+    return (
+      <LanguageSelectionScreen
+        userData={userData}
+        nativeLanguage={onboardingData?.nativeLanguage ?? ''}
+        learningGoals={onboardingData?.learningGoals ?? []}
+        onComplete={handleLanguageSelected}
       />
     );
   }

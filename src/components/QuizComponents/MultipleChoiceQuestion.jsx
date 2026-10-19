@@ -1,52 +1,47 @@
 import React from 'react';
 
-export const QuestionCard = ({
+export const MultipleChoiceQuestion = ({
   question,
-  questionIndex,
-  selectedAnswer,
+  selected,
   submitted,
-  onSelectAnswer,
+  onSelect,
 }) => {
   return (
     <div>
-      <p
-        style={{
-          fontWeight: 700,
-          marginBottom: 'var(--nb-space-sm)',
-        }}
-      >
-        {questionIndex + 1}. {question.question}
+      <p style={{ fontWeight: 700, marginBottom: 'var(--nb-space-sm)' }}>
+        {question.question}
       </p>
 
       <div className="nb-flex nb-flex-col nb-gap-sm">
         {question.options.map((option) => {
-          const selected = selectedAnswer === option;
+          const isSelected = selected === option;
           const isCorrect = option === question.correctAnswer;
 
           let bg = 'var(--nb-white)';
           if (submitted) {
             if (isCorrect) bg = 'var(--nb-lime)';
-            else if (selected) bg = 'var(--nb-red)';
-          } else if (selected) {
+            else if (isSelected) bg = 'var(--nb-red)';
+          } else if (isSelected) {
             bg = 'var(--nb-yellow)';
           }
 
           return (
             <button
               key={option}
-              onClick={() => onSelectAnswer(questionIndex, option)}
+              type="button"
+              onClick={() => !submitted && onSelect(option)}
               disabled={submitted}
               style={{
                 padding: 'var(--nb-space-md)',
                 background: bg,
                 border: 'var(--nb-border)',
-                boxShadow: selected ? 'var(--nb-shadow-sm)' : 'none',
+                boxShadow: isSelected ? 'var(--nb-shadow-sm)' : 'none',
                 cursor: submitted ? 'default' : 'pointer',
                 textAlign: 'left',
                 fontFamily: 'var(--nb-font)',
                 fontSize: '1rem',
                 color:
-                  submitted && selected && !isCorrect
+                  submitted && isSelected && !isCorrect
                     ? 'var(--nb-white)'
                     : 'inherit',
               }}
@@ -74,3 +69,11 @@ export const QuestionCard = ({
     </div>
   );
 };
+
+/**
+ * Whether the answer is correct. `selected` is the chosen option
+ * string (or undefined). Used by the section quiz for scoring.
+ */
+export function isMultipleChoiceCorrect(question, selected) {
+  return selected === question.correctAnswer;
+}

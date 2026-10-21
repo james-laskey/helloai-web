@@ -1,0 +1,386 @@
+/* WavingPerson.css */
+
+* {
+  box-sizing: border-box;
+}
+
+.waving-scene {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  overflow: hidden;
+  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Transparent variant: used when embedding the character on a page
+   that already provides its own surface (e.g. the landing hero). */
+.waving-scene--transparent {
+  background: transparent;
+}
+
+/* ============ Decorative background circles ============ */
+/* These are rendered only when `transparent` is false. The rules
+   stay here in case you later choose to render them on a tinted
+   surface. */
+.bg-circle {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.bg-circle-1 {
+  width: 400px;
+  height: 400px;
+  background: #e94560;
+  top: -100px;
+  left: -100px;
+  animation: float 8s ease-in-out infinite;
+}
+
+.bg-circle-2 {
+  width: 300px;
+  height: 300px;
+  background: #533483;
+  bottom: -50px;
+  right: 10%;
+  animation: float 10s ease-in-out infinite reverse;
+}
+
+.bg-circle-3 {
+  width: 200px;
+  height: 200px;
+  background: #0fabbc;
+  top: 30%;
+  right: 20%;
+  animation: float 12s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(30px, -30px); }
+}
+
+/* ============ Main content layout ============ */
+.content-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 1;
+}
+
+/* ============ Greeting text ============ */
+/* Starts below the viewport; slides up when .text-in (or .person-in)
+   is applied to the root scene. */
+.greeting-text {
+  font-size: clamp(3rem, 10vw, 7rem);
+  font-weight: 900;
+  color: #fff;
+  margin: 0;
+  text-align: center;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  opacity: 0;
+  transform: translateY(60vh);
+  transition: opacity 0.7s ease,
+              transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, opacity;
+}
+
+.text-in .greeting-text,
+.person-in .greeting-text {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.greeting-word {
+  background: linear-gradient(135deg, #fff 0%, #a5d8ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.greeting-exclaim {
+  color: #e94560;
+  animation: pulseExclaim 1.5s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes pulseExclaim {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.15); }
+}
+
+/* ============ Character container ============ */
+/* Starts off to the right; slides in when .person-in is applied.
+   The small 0.15s delay lets the text get a head start. */
+.character-container {
+  position: relative;
+  margin-top: 2rem;
+  margin-left: 30%;
+  opacity: 0;
+  transform: translateX(60vw);
+  transition: opacity 0.7s ease 0.15s,
+              transform 0.95s cubic-bezier(0.22, 1, 0.36, 1) 0.15s;
+  will-change: transform, opacity;
+}
+
+.person-in .character-container {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Inner wrapper layers that split the figure so the legs stay still
+   while the upper body sways. */
+.character-lower,
+.character-upper {
+  position: absolute;
+  inset: 0;
+}
+
+/* Upper body pivots at the hips, not the feet, because the legs no
+   longer move. The hip line is around 62% down the character box
+   for your current art (legs are 30% tall and sit at bottom: 3%).
+   Tune the 62% if the pivot looks slightly off. */
+.character-upper {
+  transform-origin: 50% 62%;
+  will-change: transform;
+}
+
+/* ============ Character base ============ */
+.character {
+  position: relative;
+  width: 280px;
+  height: 420px;
+}
+
+.body-part {
+  position: absolute;
+  user-select: none;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+/* ============ Legs ============ */
+.legs-layer {
+  position: absolute;
+  inset: 0;
+  z-index: -99;
+}
+
+.leg {
+  bottom: 3%;
+  height: 30%;
+  width: auto;
+  transform-origin: center top;
+}
+
+.leg-left  { left: 28%; }
+.leg-right { right: 28%; }
+
+/* ============ Torso ============ */
+.torso-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+}
+
+.torso {
+  bottom: -10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40%;
+  height: 100%;
+}
+
+/* ============ Arms ============ */
+.arm-layer {
+  position: absolute;
+  z-index: 3;
+}
+
+.arm-right-layer {
+  top: 45%;
+  left: 13%;
+}
+
+.arm-left-layer {
+  top: 49%;
+  right: 38%;
+  transform: scaleX(-1);
+}
+
+.arm {
+  width: 100%;
+  height: auto;
+  transform-origin: center top;
+}
+
+.arm-right { width: 60px; }
+.arm-left  { width: 60px; }
+
+/* ============ Waving arm ============ */
+.waving-arm {
+  transform-origin: bottom center;
+  transition: none;
+  z-index: 4;
+  will-change: transform;
+  /* animation: armBounce 2s ease-in-out infinite; */
+}
+
+@keyframes armBounce {
+  0%, 100% { filter: drop-shadow(0 0 0 rgba(233, 69, 96, 0)); }
+  50%      { filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.5)); }
+}
+
+/* ============ Head ============ */
+.head-layer {
+  position: absolute;
+  top: 5%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  width: 40%;
+  height: auto;
+}
+
+.head {
+  width: 100%;
+  height: auto;
+  position: relative;
+  display: block;
+}
+
+/* ============ Face features ============ */
+.face-features {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.eyes {
+  position: absolute;
+  width: 150%;
+  height: auto;
+  top: 33%;
+  left: 50%;
+  transform: translateX(-50%);
+  transform-origin: center center;
+  animation: armBounce 2s ease-in-out infinite;
+  /* animation: blink 4s infinite; */
+}
+
+@keyframes blink {
+  0%, 45%, 55%, 100% { transform: translateX(-50%) scaleY(1); }
+  50%                { transform: translateX(-50%) scaleY(0.1); }
+}
+
+.mouth {
+  position: absolute;
+  width: 40%;
+  height: auto;
+  bottom: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* ============ Character shadow ============ */
+/* Soft, circular, blurred disc under the feet. */
+.character-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  transform: translateX(-50%);
+  width: 150px;
+  height: 28px;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 0.55) 0%,
+    rgba(0, 0, 0, 0.35) 40%,
+    rgba(0, 0, 0, 0) 72%
+  );
+  border-radius: 50%;
+  filter: blur(10px);
+  z-index: 0;
+  pointer-events: none;
+  animation: shadowPulse 2.4s ease-in-out infinite;
+}
+
+.character-shadow::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 55%;
+  height: 55%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 0.6) 0%,
+    rgba(0, 0, 0, 0) 70%
+  );
+  border-radius: 50%;
+  filter: blur(6px);
+}
+
+@keyframes shadowPulse {
+  0%, 100% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateX(-50%) scale(1.06);
+    opacity: 0.42;
+  }
+}
+
+/* ============ Responsive adjustments ============ */
+@media (max-width: 768px) {
+  .character {
+    width: 200px;
+    height: 300px;
+  }
+
+  .character-container {
+    margin-left: 0;
+    transform: translateX(80vw);
+  }
+
+  .arm-right,
+  .arm-left {
+    width: 60px;
+  }
+  .arm-left {
+    transform: scaleX(-1);
+  }
+
+  .character-shadow {
+    width: 110px;
+    height: 22px;
+  }
+}
+
+/* ============ Reduced motion ============ */
+@media (prefers-reduced-motion: reduce) {
+  .greeting-text,
+  .character-container {
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .waving-arm,
+  .character-upper,
+  .eyes,
+  .greeting-exclaim,
+  .bg-circle,
+  .character-shadow {
+    animation: none;
+  }
+}

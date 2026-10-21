@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AuthScreen } from './screens/AuthScreen';
+import { HelloScreen } from './screens/HelloScreen';
 import { QuestionnaireScreen } from './screens/QuestionnaireScreen';
 import { LanguageSelectionScreen } from './components/LanguageSelectionScreen';
 import { TopicSelectionScreen } from './screens/TopicSelectionScreen';
@@ -37,11 +38,14 @@ const App = () => {
   const [userPreferences, setUserPreferences] = useState(null);
   const [userId, setUserId] = useState(null);
 
-  /* -------- Onboarding --------
-   * null = done (or not needed).
-   * 'questionnaire' = first step (native language + goals).
-   * 'language' = second step (pick target language).
-   */
+  /* -------- Post-login splash -------- */
+  const [showHello, setShowHello] = useState(true);
+  // True once the splash has been shown (and dismissed) for the
+  // current login. Reset on logout. Ensures the splash is shown at
+  // most once per login, even if `showHello` were ever set again.
+  const helloShownThisLoginRef = useRef(false);
+
+  /* -------- Onboarding -------- */
   const [onboardingStep, setOnboardingStep] = useState(null);
   const [onboardingData, setOnboardingData] = useState(null);
 
@@ -80,7 +84,7 @@ const App = () => {
     }
   }, []);
 
-  /* -------- Bootstrap -------- */
+  /* -------- Bootstrap (app load only) -------- */
   useEffect(() => {
     bootstrap();
   }, []);
@@ -103,11 +107,9 @@ const App = () => {
       const prefs = result.preferences;
 
       if (!prefs) {
-        // Brand-new user: start onboarding.
         setOnboardingStep('questionnaire');
         setOnboardingData(null);
       } else if (!prefs.targetLanguage) {
-        // They finished the questionnaire but not the language step.
         setOnboardingStep('language');
         setOnboardingData({
           nativeLanguage: prefs.nativeLanguage,
@@ -175,6 +177,9 @@ const App = () => {
     setUserData(null);
     setUserPreferences(null);
     setUserId(null);
+    setShowHello(false);
+    // Next login should show the splash again.
+    helloShownThisLoginRef.current = false;
     setOnboardingStep(null);
     setOnboardingData(null);
     setSelectedLanguage(null);
@@ -199,19 +204,49 @@ const App = () => {
     }
   };
 
+  /**
+   * Login succeeded. Set up the splash once per login, then hydrate.
+   */
   const handleAuthComplete = async (user) => {
     setUserData(user);
     setUserId(user.id);
     setIsAuthenticated(true);
 
-    // Re-run the same decision tree as bootstrap so a returning user
-    // is routed correctly and a new one starts onboarding.
-    await bootstrap();
+    // Only show the splash the first time this login session hits
+    // this handler. Subsequent logins after logout reset the ref.
+    if (!helloShownThisLoginRef.current) {
+      setShowHello(true);
+    }
+
+    // Hydrate preferences + streak. This does not touch showHello.
+    const hydrated = await hydrateUser();
+    const prefs = hydrated?.preferences;
+
+    // Decide onboarding while the splash is still visible.
+    if (!prefs) {
+      setOnboardingStep('questionnaire');
+      setOnboardingData(null);
+    } else if (!prefs.targetLanguage) {
+      setOnboardingStep('language');
+      setOnboardingData({
+        nativeLanguage: prefs.nativeLanguage,
+        learningGoals: prefs.learningGoals ?? [],
+      });
+    } else {
+      setOnboardingStep(null);
+      setOnboardingData(null);
+    }
+
+    setIsHydrating(false);
   };
 
-  /**
-   * Step 1 done: keep the answers, move to step 2 (pick language).
-   */
+  const handleHelloDone = () => {
+    setShowHello(false);
+    // Remember that the splash has been shown for this login so it
+    // never reappears until the next login.
+    helloShownThisLoginRef.current = true;
+  };
+
   const handleQuestionnaireComplete = (data) => {
     setOnboardingData({
       nativeLanguage: data.nativeLanguage,
@@ -220,10 +255,6 @@ const App = () => {
     setOnboardingStep('language');
   };
 
-  /**
-   * Step 2 done: persist everything (now including targetLanguage) and
-   * enter the app.
-   */
   const handleLanguageSelected = async (data) => {
     const preferences = {
       nativeLanguage: data.nativeLanguage,
@@ -243,7 +274,6 @@ const App = () => {
     setOnboardingStep(null);
     setOnboardingData(null);
 
-    // Pull the streak for the newly chosen language.
     await hydrateUser();
   };
 
@@ -290,10 +320,7 @@ const App = () => {
         else if (userPreferences.proficiencyLevel <= 6) rate = 0.8;
       }
 
-      if (
-        selectedLanguage === 'Japanese' ||
-        selectedLanguage === 'Korean'
-      ) {
+      if (selectedLanguage === 'Japanese' || selectedLanguage === 'Korean') {
         pitch = 1.05;
       }
 
@@ -376,7 +403,7 @@ const App = () => {
   /* -------- Reading lesson flow -------- */
 
   const handleGenerateLesson = async ({
-    questionCount,         // legacy alias, may be absent
+    questionCount,
     questionsPerSection,
     sectionCount,
     difficulty,
@@ -384,8 +411,6 @@ const App = () => {
   } = {}) => {
     const lessonLanguage = language || selectedLanguage || DEFAULT_LANGUAGE;
 
-    // Resolve the per-section question count. Setup sends
-    // questionsPerSection; older callers may send questionCount.
     const resolvedPerSection =
       typeof questionsPerSection === 'number'
         ? questionsPerSection
@@ -439,9 +464,9 @@ const App = () => {
     }
   };
 
-    const handleRetryLesson = () => {
-      if (pendingLessonConfig) handleGenerateLesson(pendingLessonConfig);
-    };
+  const handleRetryLesson = () => {
+    if (pendingLessonConfig) handleGenerateLesson(pendingLessonConfig);
+  };
 
   const handleSelectPreviousLesson = (attempt) => {
     if (!attempt?.lesson) return;
@@ -484,12 +509,6 @@ const App = () => {
     [lesson?.lessonId, userId, selectedLanguage, selectedTopic?.id]
   );
 
-  /**
-   * Called by the reading screen when the lesson is finished. Persists
-   * results and refreshes the streak, but does NOT navigate away —
-   * ReadingLessonScreen shows the celebration and calls onBack after
-   * the user continues.
-   */
   const handleLessonComplete = async (results) => {
     try {
       if (lesson?.lessonId) {
@@ -513,8 +532,6 @@ const App = () => {
       console.error('Error submitting lesson results:', err);
     }
     await refreshStreak();
-    // Do NOT navigate. The celebration calls onBack when the user
-    // clicks Continue.
     return results;
   };
 
@@ -534,22 +551,22 @@ const App = () => {
 
   /* -------- Routing -------- */
 
-  if (isHydrating && isAuthenticated) {
+  if (!isAuthenticated) {
+    return <AuthScreen onAuthComplete={handleAuthComplete} />;
+  }
+
+  if (isHydrating) {
     return (
       <div
         className="nb-container nb-flex nb-flex-center"
-        style={{ background: 'var(--nb-purple)', minHeight: '100vh' }}
+        style={{ background: 'var(--nb-surface)', minHeight: '100vh' }}
       >
         <div className="nb-spinner" />
-        <p className="nb-mt-md" style={{ color: 'var(--nb-white)' }}>
+        <p className="nb-mt-md" style={{ color: 'var(--nb-text)' }}>
           Loading your account...
         </p>
       </div>
     );
-  }
-
-  if (!isAuthenticated) {
-    return <AuthScreen onAuthComplete={handleAuthComplete} />;
   }
 
   if (onboardingStep === 'questionnaire') {
@@ -574,7 +591,7 @@ const App = () => {
 
   if (isTopicSet && learningMode === 'ninja') {
     return (
-      <div className="nb-container" style={{ background: 'var(--nb-purple)' }}>
+      <div className="nb-container" style={{ background: 'var(--nb-surface)' }}>
         <div
           style={{
             display: 'flex',
@@ -609,7 +626,7 @@ const App = () => {
 
   if (isTopicSet && learningMode === 'fortune') {
     return (
-      <div className="nb-container" style={{ background: 'var(--nb-purple)' }}>
+      <div className="nb-container" style={{ background: 'var(--nb-surface)' }}>
         <div
           style={{
             display: 'flex',
@@ -692,22 +709,34 @@ const App = () => {
     );
   }
 
+  // Topic screen. The splash is rendered on top of it as a fixed
+  // overlay, and only when `showHello` is true — which is set once
+  // per login and never set again until logout.
   return (
-    <TopicSelectionScreen
-      selectedLanguage={selectedLanguage}
-      onSelectLanguage={setSelectedLanguage}
-      onSelectTopic={handleSelectTopic}
-      userStats={userStats}
-      showStats={showStats}
-      onToggleStats={toggleStats}
-      onFetchStats={fetchStats}
-      userPreferences={userPreferences}
-      onUpdatePreferences={handleUpdatePreferences}
-      onLogout={handleLogout}
-      user={userData}
-      onDeleteAccount={handleDeleteAccount}
-      streak={streak}
-    />
+    <>
+      <TopicSelectionScreen
+        selectedLanguage={selectedLanguage}
+        onSelectLanguage={setSelectedLanguage}
+        onSelectTopic={handleSelectTopic}
+        userStats={userStats}
+        showStats={showStats}
+        onToggleStats={toggleStats}
+        onFetchStats={fetchStats}
+        userPreferences={userPreferences}
+        onUpdatePreferences={handleUpdatePreferences}
+        onLogout={handleLogout}
+        user={userData}
+        onDeleteAccount={handleDeleteAccount}
+        streak={streak}
+      />
+
+      {showHello && (
+        <HelloScreen
+          userName={userData?.name || ''}
+          onDone={handleHelloDone}
+        />
+      )}
+    </>
   );
 };
 

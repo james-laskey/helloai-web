@@ -34,6 +34,36 @@ export const FortuneGame = ({
     fetchPreviousGames();
   }, [fetchPreviousGames]);
 
+  /* ---------- Reset ---------- */
+  /* Clears any in-progress game state. Used by "Back" from playing and
+     by "Restart" from results. */
+  const resetToSetup = () => {
+    setGameId(null);
+    setPhrases([]);
+    setResult(null);
+    setError(null);
+    setPhase('setup');
+  };
+
+  /* ---------- Back navigation ---------- */
+  /* One Back button in the feature. Behavior depends on the phase:
+       setup    -> exit the feature (parent decides).
+       playing  -> abandon the game and return to setup.
+       results  -> return to setup.
+     There is no separate "resume mid-play" path because the play
+     screen owns its state while mounted; leaving means starting over.
+  */
+  const handleBack = () => {
+    if (phase === 'playing' || phase === 'results') {
+      resetToSetup();
+      // Refresh the previous-games list so any abandoned/completed
+      // attempts that made it to the server appear next time.
+      fetchPreviousGames();
+      return;
+    }
+    onBack?.();
+  };
+
   const handleStart = async ({ theme, puzzleCount, difficulty }) => {
     setIsGenerating(true);
     setError(null);
@@ -103,14 +133,7 @@ export const FortuneGame = ({
   };
 
   const handleRestart = () => {
-    setResult(null);
-    setGameId(null);
-    setPhrases([]);
-    setPhase('setup');
-  };
-
-  const handleBack = () => {
-    onBack?.();
+    resetToSetup();
   };
 
   if (phase === 'setup') {

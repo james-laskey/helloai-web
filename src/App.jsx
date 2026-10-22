@@ -3,11 +3,7 @@ import { AuthScreen } from './screens/AuthScreen';
 import { HelloScreen } from './screens/HelloScreen';
 import { QuestionnaireScreen } from './screens/QuestionnaireScreen';
 import { LanguageSelectionScreen } from './components/LanguageSelectionScreen';
-import { TopicSelectionScreen } from './screens/TopicSelectionScreen';
-import { FeatureSelectionScreen } from './components/FeatureSelectionScreen';
-import { LearningScreen } from './screens/LearningScreen';
-import { NinjaGame } from './components/ninja/NinjaGame';
-import { FortuneGame } from './components/fortune/FortuneGame';
+import { DashboardScreen } from './screens/DashboardScreen';
 import { api } from './services/api';
 import { authApi } from './services/authApi';
 import { LANGUAGE_TOPICS } from './constants/languageTopics';
@@ -40,9 +36,6 @@ const App = () => {
 
   /* -------- Post-login splash -------- */
   const [showHello, setShowHello] = useState(true);
-  // True once the splash has been shown (and dismissed) for the
-  // current login. Reset on logout. Ensures the splash is shown at
-  // most once per login, even if `showHello` were ever set again.
   const helloShownThisLoginRef = useRef(false);
 
   /* -------- Onboarding -------- */
@@ -52,8 +45,6 @@ const App = () => {
   /* -------- Language + navigation -------- */
   const [selectedLanguage, setSelectedLanguage] = useState(null);
   const [selectedTopic, setSelectedTopic] = useState(null);
-  const [isFeatureSelected, setIsFeatureSelected] = useState(false);
-  const [isTopicSet, setIsTopicSet] = useState(false);
   const [learningMode, setLearningMode] = useState(null);
 
   /* -------- Streak -------- */
@@ -178,14 +169,11 @@ const App = () => {
     setUserPreferences(null);
     setUserId(null);
     setShowHello(false);
-    // Next login should show the splash again.
     helloShownThisLoginRef.current = false;
     setOnboardingStep(null);
     setOnboardingData(null);
     setSelectedLanguage(null);
     setSelectedTopic(null);
-    setIsFeatureSelected(false);
-    setIsTopicSet(false);
     setLearningMode(null);
     setLesson(null);
     setLessonError(null);
@@ -204,25 +192,18 @@ const App = () => {
     }
   };
 
-  /**
-   * Login succeeded. Set up the splash once per login, then hydrate.
-   */
   const handleAuthComplete = async (user) => {
     setUserData(user);
     setUserId(user.id);
     setIsAuthenticated(true);
 
-    // Only show the splash the first time this login session hits
-    // this handler. Subsequent logins after logout reset the ref.
     if (!helloShownThisLoginRef.current) {
       setShowHello(true);
     }
 
-    // Hydrate preferences + streak. This does not touch showHello.
     const hydrated = await hydrateUser();
     const prefs = hydrated?.preferences;
 
-    // Decide onboarding while the splash is still visible.
     if (!prefs) {
       setOnboardingStep('questionnaire');
       setOnboardingData(null);
@@ -242,8 +223,6 @@ const App = () => {
 
   const handleHelloDone = () => {
     setShowHello(false);
-    // Remember that the splash has been shown for this login so it
-    // never reappears until the next login.
     helloShownThisLoginRef.current = true;
   };
 
@@ -360,24 +339,19 @@ const App = () => {
     });
   }, [stopSpeaking]);
 
-  /* -------- Navigation -------- */
+  /* -------- Navigation (kept for compatibility) -------- */
 
   const handleSelectTopic = (topic) => {
     setSelectedTopic(topic);
-    setIsFeatureSelected(true);
   };
 
   const handleSelectFeature = (featureId) => {
     setLearningMode(featureId);
-    setIsFeatureSelected(false);
-    setIsTopicSet(true);
   };
 
   const handleBackToTopics = () => {
-    setIsFeatureSelected(false);
     setSelectedTopic(null);
     setLearningMode(null);
-    setIsTopicSet(false);
     setLesson(null);
     setLessonError(null);
     setPendingLessonConfig(null);
@@ -388,7 +362,6 @@ const App = () => {
   };
 
   const handleBackToFeatures = () => {
-    setIsTopicSet(false);
     setLearningMode(null);
     setLesson(null);
     setLessonError(null);
@@ -397,7 +370,20 @@ const App = () => {
     stopSpeaking();
     fetchStats();
     refreshStreak();
-    setIsFeatureSelected(true);
+  };
+
+  /**
+   * Called by the feature shell's Back button inside DashboardScreen.
+   * Resets per-feature state (reading lesson / errors / pending config)
+   * and stops speech, but keeps `learningMode` set so the dashboard
+   * stays on the same feature and its setup screen reappears.
+   */
+  const handleFeatureBack = () => {
+    setLesson(null);
+    setLessonError(null);
+    setPendingLessonConfig(null);
+    lastProgressSaveRef.current = 0;
+    stopSpeaking();
   };
 
   /* -------- Reading lesson flow -------- */
@@ -558,13 +544,18 @@ const App = () => {
   if (isHydrating) {
     return (
       <div
-        className="nb-container nb-flex nb-flex-center"
-        style={{ background: 'var(--nb-surface)', minHeight: '100vh' }}
+        className="dash-root"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '100vh',
+          flexDirection: 'column',
+          gap: 16,
+        }}
       >
         <div className="nb-spinner" />
-        <p className="nb-mt-md" style={{ color: 'var(--nb-text)' }}>
-          Loading your account...
-        </p>
+        <p style={{ color: 'var(--nb-text)' }}>Loading your account...</p>
       </div>
     );
   }
@@ -589,84 +580,19 @@ const App = () => {
     );
   }
 
-  if (isTopicSet && learningMode === 'ninja') {
-    return (
-      <div className="nb-container" style={{ background: 'var(--nb-surface)' }}>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: 'var(--nb-space-md) var(--nb-space-lg)',
-            background: 'var(--nb-white)',
-            borderBottom: 'var(--nb-border)',
-          }}
-        >
-          <button onClick={handleBackToFeatures} className="nb-button">
-            Back
-          </button>
-          <h1 className="nb-heading nb-heading-md" style={{ margin: 0 }}>
-            Hello Ninja
-          </h1>
-          <div style={{ width: '100px' }} />
-        </div>
-        <div style={{ padding: 'var(--nb-space-lg)' }}>
-          <NinjaGame
-            userId={userId}
-            language={selectedLanguage}
-            topicId={selectedTopic?.id}
-            topicName={selectedTopic?.name}
-            onBack={handleBackToFeatures}
-            onActivityComplete={refreshStreak}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  if (isTopicSet && learningMode === 'fortune') {
-    return (
-      <div className="nb-container" style={{ background: 'var(--nb-surface)' }}>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: 'var(--nb-space-md) var(--nb-space-lg)',
-            background: 'var(--nb-white)',
-            borderBottom: 'var(--nb-border)',
-          }}
-        >
-          <button onClick={handleBackToFeatures} className="nb-button">
-            Back
-          </button>
-          <h1 className="nb-heading nb-heading-md" style={{ margin: 0 }}>
-            Hello Land of Fortune
-          </h1>
-          <div style={{ width: '100px' }} />
-        </div>
-        <div style={{ padding: 'var(--nb-space-lg)' }}>
-          <FortuneGame
-            userId={userId}
-            language={selectedLanguage}
-            topicId={selectedTopic?.id}
-            topicName={selectedTopic?.name}
-            onBack={handleBackToFeatures}
-            onActivityComplete={refreshStreak}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  if (isTopicSet) {
-    return (
-      <LearningScreen
-        mode={learningMode}
-        selectedLanguage={selectedLanguage}
-        selectedTopic={selectedTopic}
+  return (
+    <>
+      <DashboardScreen
+        user={userData}
         userPreferences={userPreferences}
-        onBack={handleBackToFeatures}
+        userId={userId}
+        streak={streak}
+        selectedLanguage={selectedLanguage}
+        onSelectLanguage={setSelectedLanguage}
+        selectedTopic={selectedTopic}
+        onSelectTopic={handleSelectTopic}
+        learningMode={learningMode}
+        onSelectFeature={handleSelectFeature}
         lesson={lesson}
         isLessonLoading={isLessonLoading}
         lessonError={lessonError}
@@ -674,6 +600,7 @@ const App = () => {
         onRetryLesson={handleRetryLesson}
         onLessonComplete={handleLessonComplete}
         onLessonProgress={handleLessonProgress}
+        onSelectPreviousLesson={handleSelectPreviousLesson}
         speakText={speakText}
         stopSpeaking={stopSpeaking}
         isSpeaking={isSpeaking}
@@ -685,56 +612,15 @@ const App = () => {
         showStats={showStats}
         onToggleStats={toggleStats}
         onFetchStats={fetchStats}
-        onSelectPreviousLesson={handleSelectPreviousLesson}
-        userId={userId}
-        streak={streak}
         onActivityComplete={refreshStreak}
-      />
-    );
-  }
-
-  if (isFeatureSelected && selectedTopic) {
-    return (
-      <FeatureSelectionScreen
-        topic={selectedTopic}
-        language={selectedLanguage}
-        onSelectFeature={handleSelectFeature}
-        onBack={handleBackToTopics}
-        userStats={userStats}
-        showStats={showStats}
-        onToggleStats={toggleStats}
-        onFetchStats={fetchStats}
-        streak={streak}
-      />
-    );
-  }
-
-  // Topic screen. The splash is rendered on top of it as a fixed
-  // overlay, and only when `showHello` is true — which is set once
-  // per login and never set again until logout.
-  return (
-    <>
-      <TopicSelectionScreen
-        selectedLanguage={selectedLanguage}
-        onSelectLanguage={setSelectedLanguage}
-        onSelectTopic={handleSelectTopic}
-        userStats={userStats}
-        showStats={showStats}
-        onToggleStats={toggleStats}
-        onFetchStats={fetchStats}
-        userPreferences={userPreferences}
         onUpdatePreferences={handleUpdatePreferences}
         onLogout={handleLogout}
-        user={userData}
         onDeleteAccount={handleDeleteAccount}
-        streak={streak}
+        onFeatureBack={handleFeatureBack}
       />
 
       {showHello && (
-        <HelloScreen
-          userName={userData?.name || ''}
-          onDone={handleHelloDone}
-        />
+        <HelloScreen userName={userData?.name || ''} onDone={handleHelloDone} />
       )}
     </>
   );

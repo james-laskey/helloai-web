@@ -38,6 +38,32 @@ export const NinjaGame = ({
     fetchPreviousGames();
   }, [fetchPreviousGames]);
 
+  /* ---------- Reset ---------- */
+  const resetToSetup = () => {
+    setResult(null);
+    setGameId(null);
+    setQuestions([]);
+    setTimerSeconds(DEFAULT_TIMER_SECONDS);
+    setError(null);
+    setPhase('setup');
+  };
+
+  /* ---------- Back navigation ---------- */
+  /* setup    -> exit the feature (parent decides).
+     playing  -> abandon the game and return to setup.
+     results  -> return to setup.
+  */
+  const handleBack = () => {
+    if (phase === 'playing' || phase === 'results') {
+      resetToSetup();
+      // Refresh so an abandoned attempt (if the server recorded one)
+      // shows up in the previous-games list on setup.
+      fetchPreviousGames();
+      return;
+    }
+    onBack?.();
+  };
+
   /* ---------- Generate a new game ---------- */
 
   const handleStart = async ({
@@ -126,18 +152,10 @@ export const NinjaGame = ({
     fetchPreviousGames();
   };
 
-  /* ---------- Restart / back ---------- */
+  /* ---------- Restart ---------- */
 
   const handleRestart = () => {
-    setResult(null);
-    setGameId(null);
-    setQuestions([]);
-    setTimerSeconds(DEFAULT_TIMER_SECONDS);
-    setPhase('setup');
-  };
-
-  const handleBack = () => {
-    onBack?.();
+    resetToSetup();
   };
 
   /* ---------- Render ---------- */

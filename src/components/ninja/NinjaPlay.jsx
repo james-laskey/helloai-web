@@ -3,20 +3,32 @@ import {
   STARTING_LIVES,
   SCORE_CORRECT,
   COMBO_BONUS,
-  SPAWN_STAGGER_MS,
 } from './constants';
 
 const GROUND_Y_OFFSET = 80;
-const SPAWN_Y_OFFSET = 60;
 const WORD_PADDING_X = 28;
 const WORD_FONT = '700 28px system-ui, sans-serif';
+
+/* ---------- Tunables ---------- */
+
+const SPAWN_GAP_MS = 1400;
+
+const GRAVITY_UP   = 2000;  // px / s²
+const GRAVITY_DOWN =  550;  // px / s²
+
+const MIN_APEX_HEIGHT = 0.35;
+const MAX_APEX_HEIGHT = 0.85;
+
+const FLASH_HOLD_MS = 1100;
+const FLASH_FADE_MS = 300;
 
 export const NinjaPlay = ({
   questions,
   language,
-  timerSeconds,      // NEW: seconds per question, from the setup screen
+  timerSeconds,
   onComplete,
   onExit,
+  backgroundImage = 'ninja-bg.png',
 }) => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -28,33 +40,59 @@ export const NinjaPlay = ({
     words: [],
     canvasW: 0,
     canvasH: 0,
+    groundY: 0,
     lives: STARTING_LIVES,
     score: 0,
     combo: 0,
     correctCount: 0,
     wrongCount: 0,
     missCount: 0,
-    questionStartTime: 0,
-    questionTimeMs: 0,
     lastFrameTime: 0,
     startTime: 0,
     rafId: null,
     spawnTimers: [],
-    resultTimer: null,
+    /* New: flash timing guards */
+    flashTimers: [],
+    roundReady: false,
     advancing: false,
+    bgImage: null,
+    bgReady: false,
   });
 
   const [hud, setHud] = useState({
     lives: STARTING_LIVES,
     score: 0,
     combo: 0,
-    timeLeftMs: 0,
     questionIndex: 0,
     total: 0,
     hint: '',
     topic: '',
     phase: 'playing',
+    flash: null,
+    flashOpacity: 0,
   });
+
+  /* ---------- Background image ---------- */
+
+  useEffect(() => {
+    const s = stateRef.current;
+    if (!backgroundImage) {
+      s.bgImage = null;
+      s.bgReady = false;
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      s.bgImage = img;
+      s.bgReady = true;
+    };
+    img.onerror = () => {
+      s.bgImage = null;
+      s.bgReady = false;
+      console.warn(`NinjaPlay: could not load background "${backgroundImage}"`);
+    };
+    img.src = backgroundImage;
+  }, [backgroundImage]);
 
   /* ---------- Resize ---------- */
 
@@ -77,6 +115,7 @@ export const NinjaPlay = ({
 
     stateRef.current.canvasW = w;
     stateRef.current.canvasH = h;
+    stateRef.current.groundY = h - GROUND_Y_OFFSET;
   }, []);
 
   useEffect(() => {
@@ -103,6 +142,29 @@ export const NinjaPlay = ({
     ctx.closePath();
   };
 
+  const drawBackground = (ctx) => {
+    const s = stateRef.current;
+    const { canvasW, canvasH } = s;
+
+    if (s.bgReady && s.bgImage) {
+      const img = s.bgImage;
+      const scale = Math.max(canvasW / img.width, canvasH / img.height);
+      const dw = img.width * scale;
+      const dh = img.height * scale;
+      const dx = (canvasW - dw) / 2;
+      const dy = (canvasH - dh) / 2;
+      ctx.drawImage(img, dx, dy, dw, dh);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+      ctx.fillRect(0, 0, canvasW, canvasH);
+    } else {
+      const grad = ctx.createLinearGradient(0, 0, 0, canvasH);
+      grad.addColorStop(0, '#0a0a1a');
+      grad.addColorStop(1, '#1e1b4b');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvasW, canvasH);
+    }
+  };
+
   const drawWord = (ctx, word) => {
     const { x, y, w, h, text, color, alpha } = word;
     ctx.save();
@@ -125,6 +187,45 @@ export const NinjaPlay = ({
     ctx.restore();
   };
 
+  /* ---------- Question flash ---------- */
+
+  /* Schedules the flash, then the spawn. All timers are stored on
+     `s.flashTimers` so they can be cancelled on unmount or when a
+     new round starts. `onDone` fires after the flash finishes. */
+  const showQuestionFlash = (hint, topic, onDone) => {
+    const s = stateRef.current;
+
+    // Cancel any flash timers still in flight from a previous round.
+    s.flashTimers.forEach((id) => clearTimeout(id));
+    s.flashTimers = [];
+
+    setHud((prev) => ({
+      ...prev,
+      hint,
+      topic,
+      flash: 'fade-in',
+      flashOpacity: 0,
+    }));
+
+    requestAnimationFrame(() => {
+      setHud((prev) => ({ ...prev, flashOpacity: 1 }));
+    });
+
+    const holdTimer = setTimeout(() => {
+      setHud((prev) => ({ ...prev, flash: 'fade-out', flashOpacity: 0 }));
+
+      const endTimer = setTimeout(() => {
+        setHud((prev) => ({ ...prev, flash: null, flashOpacity: 0 }));
+        s.flashTimers = [];
+        onDone?.();
+      }, FLASH_FADE_MS);
+
+      s.flashTimers.push(endTimer);
+    }, FLASH_FADE_MS + FLASH_HOLD_MS);
+
+    s.flashTimers.push(holdTimer);
+  };
+
   /* ---------- Spawn ---------- */
 
   const spawnQuestion = (qIndex) => {
@@ -136,67 +237,81 @@ export const NinjaPlay = ({
     const q = s.questions[qIndex];
     if (!q) return;
 
-    s.questionStartTime = performance.now();
-    s.questionTimeMs = timerSeconds * 1000;
     s.advancing = false;
+    /* Until the flash finishes and the first word has been queued,
+       this round is NOT "in progress" from the loop's perspective. */
+    s.roundReady = false;
 
     const items = [
       { text: q.correctWord, correct: true },
       ...q.decoys.map((d) => ({ text: d, correct: false })),
     ].sort(() => Math.random() - 0.5);
 
-    // Calculate the fall duration for each word. Every word should be
-    // able to reach the ground before the timer expires, so the fall
-    // speed is derived from the slowest word (the last one spawned).
-    const totalWordCount = items.length;
-    const lastSpawnDelay = (totalWordCount - 1) * SPAWN_STAGGER_MS;
-    const availableFallMs = Math.max(1000, s.questionTimeMs - lastSpawnDelay);
-
     const lanes = items.length;
     const laneWidth = s.canvasW / (lanes + 1);
+    const groundY = s.groundY;
 
-    items.forEach((item, i) => {
-      const timer = setTimeout(() => {
-        if (!s.running || s.questionIndex !== qIndex) return;
+    const spawn = () => {
+      if (!s.running || s.questionIndex !== qIndex) return;
 
-        const measured = measureWord(ctx, item.text);
-        const laneCenter = laneWidth * (i + 1);
-        const jitter = (Math.random() - 0.5) * (laneWidth * 0.4);
-        const x = Math.max(
-          measured.width / 2 + 8,
-          Math.min(s.canvasW - measured.width / 2 - 8, laneCenter + jitter)
-        );
+      /* Now the round has actually begun. Only from this point can the
+         loop legitimately advance it once everything is resolved. */
+      s.roundReady = true;
 
-        s.words.push({
-          text: item.text,
-          correct: item.correct,
-          x,
-          baseX: x,
-          y: SPAWN_Y_OFFSET,
-          w: measured.width,
-          h: measured.height,
-          color: '#7dd3fc',
-          alpha: 1,
-          resolved: false,
-          wobblePhase: Math.random() * Math.PI * 2,
-          spawnTime: performance.now(),
-          // Each word falls at the same speed, taking availableFallMs
-          // to travel from spawn to ground.
-          fallDurationMs: availableFallMs,
-        });
-      }, i * SPAWN_STAGGER_MS);
+      items.forEach((item, i) => {
+        const timer = setTimeout(() => {
+          if (!s.running || s.questionIndex !== qIndex) return;
 
-      s.spawnTimers.push(timer);
-    });
+          const measured = measureWord(ctx, item.text);
+          const laneCenter = laneWidth * (i + 1);
+          const jitter = (Math.random() - 0.5) * (laneWidth * 0.4);
+          const x = Math.max(
+            measured.width / 2 + 8,
+            Math.min(s.canvasW - measured.width / 2 - 8, laneCenter + jitter)
+          );
+
+          const apexFraction =
+            MIN_APEX_HEIGHT +
+            Math.random() * (MAX_APEX_HEIGHT - MIN_APEX_HEIGHT);
+          const maxRise = groundY - measured.height / 2;
+          const apexY = Math.max(
+            measured.height / 2 + 40,
+            maxRise - maxRise * apexFraction
+          );
+          const riseDistance = groundY - apexY;
+
+          const vy0 = -Math.sqrt(2 * GRAVITY_UP * riseDistance);
+          const vx = (Math.random() - 0.5) * 30;
+
+          s.words.push({
+            text: item.text,
+            correct: item.correct,
+            x,
+            baseX: x,
+            y: groundY,
+            w: measured.width,
+            h: measured.height,
+            vx,
+            vy: vy0,
+            color: '#7dd3fc',
+            alpha: 1,
+            resolved: false,
+            wobblePhase: Math.random() * Math.PI * 2,
+            spawnTime: performance.now(),
+          });
+        }, i * SPAWN_GAP_MS);
+
+        s.spawnTimers.push(timer);
+      });
+    };
 
     setHud((prev) => ({
       ...prev,
       questionIndex: qIndex,
       total: s.questions.length,
-      hint: q.hint,
-      topic: q.topic,
-      timeLeftMs: s.questionTimeMs,
     }));
+
+    showQuestionFlash(q.hint, q.topic, spawn);
   };
 
   /* ---------- Clicks ---------- */
@@ -226,6 +341,7 @@ export const NinjaPlay = ({
 
   const handleWordClick = (word) => {
     const s = stateRef.current;
+    if (word.resolved) return;
 
     if (word.correct) {
       word.resolved = true;
@@ -233,13 +349,25 @@ export const NinjaPlay = ({
       s.score += SCORE_CORRECT + s.combo * COMBO_BONUS;
       s.combo += 1;
       s.correctCount += 1;
-    } else {
-      word.resolved = true;
-      word.color = '#ff4757';
-      s.combo = 0;
-      s.wrongCount += 1;
-      s.lives = Math.max(0, s.lives - 1);
+
+      word.fadeOut = 300;
+      word.fadeOutStartedAt = performance.now();
+
+      setHud((prev) => ({
+        ...prev,
+        score: s.score,
+        combo: s.combo,
+      }));
+
+      endQuestionAndAdvance(500);
+      return;
     }
+
+    word.resolved = true;
+    word.color = '#ff4757';
+    s.combo = 0;
+    s.wrongCount += 1;
+    s.lives = Math.max(0, s.lives - 1);
 
     word.fadeOut = 300;
     word.fadeOutStartedAt = performance.now();
@@ -251,28 +379,39 @@ export const NinjaPlay = ({
       lives: s.lives,
     }));
 
-    const unresolved = s.words.filter((w) => !w.resolved).length;
-    if (unresolved === 0 && s.lives > 0) {
-      endQuestionEarly();
-    }
-
     if (s.lives <= 0) {
       endGame(false);
+      return;
     }
+
+    maybeAdvanceIfAllResolved();
   };
 
   /* ---------- Transitions ---------- */
 
-  const endQuestionEarly = () => {
+  /* Only advance when a round is actually in progress (roundReady)
+     and every spawned word has been resolved. An empty words array
+     before the flash finishes will not trigger advancement. */
+  const maybeAdvanceIfAllResolved = () => {
     const s = stateRef.current;
     if (!s.running || s.advancing) return;
+    if (!s.roundReady) return;
+    if (s.words.length === 0) return;
+    if (s.words.some((w) => !w.resolved)) return;
+    endQuestionAndAdvance(500);
+  };
 
+  const endQuestionAndAdvance = (delayMs) => {
+    const s = stateRef.current;
+    if (!s.running || s.advancing) return;
     s.advancing = true;
+    s.roundReady = false;
+
     setTimeout(() => {
       if (!s.running) return;
       s.words = [];
       advanceQuestion();
-    }, 500);
+    }, delayMs);
   };
 
   const advanceQuestion = () => {
@@ -294,7 +433,8 @@ export const NinjaPlay = ({
 
     s.spawnTimers.forEach((id) => clearTimeout(id));
     s.spawnTimers = [];
-    if (s.resultTimer) clearTimeout(s.resultTimer);
+    s.flashTimers.forEach((id) => clearTimeout(id));
+    s.flashTimers = [];
     if (s.rafId) cancelAnimationFrame(s.rafId);
     s.rafId = null;
 
@@ -304,7 +444,8 @@ export const NinjaPlay = ({
       score: s.score,
       combo: s.combo,
       phase: completed ? 'complete' : 'game-over',
-      timeLeftMs: 0,
+      flash: null,
+      flashOpacity: 0,
     }));
 
     const timeSpent = Math.floor((performance.now() - s.startTime) / 1000);
@@ -328,18 +469,13 @@ export const NinjaPlay = ({
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
-    const dt = now - (s.lastFrameTime || now);
+    const dt = Math.min(0.05, (now - (s.lastFrameTime || now)) / 1000);
     s.lastFrameTime = now;
 
     ctx.clearRect(0, 0, s.canvasW, s.canvasH);
+    drawBackground(ctx);
 
-    const grad = ctx.createLinearGradient(0, 0, 0, s.canvasH);
-    grad.addColorStop(0, '#0a0a1a');
-    grad.addColorStop(1, '#1e1b4b');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, s.canvasW, s.canvasH);
-
-    const groundY = s.canvasH - GROUND_Y_OFFSET;
+    const groundY = s.groundY;
     ctx.fillStyle = '#ef4444';
     ctx.fillRect(0, groundY, s.canvasW, 6);
 
@@ -354,8 +490,7 @@ export const NinjaPlay = ({
       return;
     }
 
-    const elapsed = now - s.questionStartTime;
-    const remaining = Math.max(0, s.questionTimeMs - elapsed);
+    let justResolvedSomething = false;
 
     for (let i = s.words.length - 1; i >= 0; i--) {
       const w = s.words[i];
@@ -371,17 +506,22 @@ export const NinjaPlay = ({
         continue;
       }
 
-      // Position based on the word's own fall duration, not the question
-      // timer. The word reaches the ground at spawnTime + fallDurationMs.
-      const fallElapsed = now - w.spawnTime;
-      const fallProgress = Math.min(1, fallElapsed / w.fallDurationMs);
-      const topY = SPAWN_Y_OFFSET + w.h / 2;
-      const bottomY = groundY - w.h / 2;
-      w.y = topY + fallProgress * (bottomY - topY);
-      w.x = w.baseX + Math.sin(now * 0.0015 + w.wobblePhase) * 8;
+      const g = w.vy < 0 ? GRAVITY_UP : GRAVITY_DOWN;
+      w.vy += g * dt;
+      w.y += w.vy * dt;
+      w.baseX += w.vx * dt;
 
-      if (w.y >= bottomY - 0.5 && !w.resolved) {
+      w.x = w.baseX + Math.sin(now * 0.0015 + w.wobblePhase) * 4;
+
+      const minX = w.w / 2 + 8;
+      const maxX = s.canvasW - w.w / 2 - 8;
+      if (w.x < minX) { w.x = minX; w.baseX = minX; w.vx = Math.abs(w.vx); }
+      if (w.x > maxX) { w.x = maxX; w.baseX = maxX; w.vx = -Math.abs(w.vx); }
+
+      const bottomEdge = w.y + w.h / 2;
+      if (bottomEdge >= groundY && w.vy > 0 && !w.resolved) {
         w.resolved = true;
+        justResolvedSomething = true;
         if (w.correct) {
           s.lives = Math.max(0, s.lives - 1);
           s.combo = 0;
@@ -392,6 +532,7 @@ export const NinjaPlay = ({
             return;
           }
         }
+        w.y = groundY - w.h / 2;
         w.fadeOut = 250;
         w.fadeOutStartedAt = now;
         w.alpha = 1;
@@ -403,41 +544,16 @@ export const NinjaPlay = ({
       drawWord(ctx, w);
     }
 
-    if (Math.floor(elapsed / 100) !== Math.floor((elapsed - dt) / 100)) {
-      setHud((prev) => ({ ...prev, timeLeftMs: remaining }));
-    }
-
-    // Question timer expired — mark all remaining as missed and advance.
-    if (remaining <= 0 && !s.advancing) {
-      s.advancing = true;
-      const unresolved = s.words.filter((w) => !w.resolved);
-      unresolved.forEach((w) => {
-        if (w.correct) {
-          s.lives = Math.max(0, s.lives - 1);
-          s.combo = 0;
-          s.missCount += 1;
-        }
-        w.resolved = true;
-        w.fadeOut = 250;
-        w.fadeOutStartedAt = now;
-      });
-
-      setHud((prev) => ({ ...prev, lives: s.lives, combo: 0 }));
-
-      if (s.lives <= 0) {
-        endGame(false);
-        return;
-      }
-
-      s.resultTimer = setTimeout(() => {
-        if (!s.running) return;
-        s.words = [];
-        advanceQuestion();
-      }, 600);
+    /* Only check advancement on frames where a word was just resolved.
+       This is the moment `s.words` is guaranteed non-empty and the
+       "every resolved" test is meaningful. It also removes the class
+       of bug where the loop trivially advances an empty round. */
+    if (justResolvedSomething) {
+      maybeAdvanceIfAllResolved();
     }
 
     s.rafId = requestAnimationFrame(loop);
-  }, [timerSeconds]);
+  }, []);
 
   /* ---------- Lifecycle ---------- */
 
@@ -453,6 +569,12 @@ export const NinjaPlay = ({
     s.wrongCount = 0;
     s.missCount = 0;
     s.advancing = false;
+    s.roundReady = false;
+    s.words = [];
+    s.spawnTimers.forEach((id) => clearTimeout(id));
+    s.spawnTimers = [];
+    s.flashTimers.forEach((id) => clearTimeout(id));
+    s.flashTimers = [];
     s.startTime = performance.now();
     s.lastFrameTime = performance.now();
 
@@ -463,10 +585,10 @@ export const NinjaPlay = ({
     return () => {
       s.running = false;
       s.spawnTimers.forEach((id) => clearTimeout(id));
-      if (s.resultTimer) clearTimeout(s.resultTimer);
+      s.flashTimers.forEach((id) => clearTimeout(id));
       if (s.rafId) cancelAnimationFrame(s.rafId);
     };
-  }, [questions, timerSeconds, resize, loop]);
+  }, [questions, resize, loop]);
 
   /* ---------- Render ---------- */
 
@@ -492,6 +614,7 @@ export const NinjaPlay = ({
         }}
       />
 
+      {/* HUD: topic/hint card */}
       <div
         style={{
           position: 'absolute',
@@ -524,6 +647,7 @@ export const NinjaPlay = ({
         </div>
       </div>
 
+      {/* HUD: lives, score, combo */}
       <div
         style={{
           position: 'absolute',
@@ -550,10 +674,44 @@ export const NinjaPlay = ({
             x{hud.combo} combo
           </div>
         )}
-        <div style={{ fontSize: 13, marginTop: 6, color: '#94a3b8' }}>
-          {(hud.timeLeftMs / 1000).toFixed(1)}s
-        </div>
       </div>
+
+      {/* Question flash — top center, momentarily before each round */}
+      {hud.flash && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '10%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(0,0,0,0.78)',
+            border: '2px solid #7dd3fc',
+            borderRadius: 14,
+            padding: '14px 22px',
+            color: 'white',
+            fontFamily: 'var(--nb-font)',
+            textAlign: 'center',
+            maxWidth: 'min(560px, 80vw)',
+            boxShadow: '0 8px 30px rgba(0,0,0,0.45)',
+            pointerEvents: 'none',
+            opacity: hud.flashOpacity,
+            transition: `opacity ${FLASH_FADE_MS}ms ease`,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 12,
+              letterSpacing: 2,
+              color: '#7dd3fc',
+              textTransform: 'uppercase',
+              marginBottom: 6,
+            }}
+          >
+            {hud.topic || 'Question'}
+          </div>
+          <div style={{ fontSize: 20, lineHeight: 1.35 }}>{hud.hint}</div>
+        </div>
+      )}
 
       <button
         onClick={onExit}

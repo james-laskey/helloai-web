@@ -52,6 +52,9 @@ import { ReactComponent as Casino } from '@material-design-icons/svg/filled/casi
 import { ReactComponent as Send } from '@material-design-icons/svg/filled/send.svg';
 import { ReactComponent as Info } from '@material-design-icons/svg/filled/info.svg';
 import { ReactComponent as LocalFireDepartment } from '@material-design-icons/svg/filled/local_fire_department.svg';
+import { ReactComponent as Fullscreen } from '@material-design-icons/svg/filled/fullscreen.svg';
+import { ReactComponent as FullscreenExit } from '@material-design-icons/svg/filled/fullscreen_exit.svg';
+
 
 // Name-based lookup
 export const ICONS = {
@@ -104,7 +107,9 @@ export const ICONS = {
   Casino,
   Send,
   Info,
-  LocalFireDepartment
+  LocalFireDepartment,
+  Fullscreen,
+  FullscreenExit
 };
 
 /**

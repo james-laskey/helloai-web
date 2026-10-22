@@ -8,9 +8,9 @@ import { StreakBadge } from '../components/StreakBadge';
  * Full screen for the reading lesson flow:
  *   setup -> player -> celebration -> back
  *
- * The celebration is shown here (not in the player) so the player can
- * unmount cleanly and the result can be displayed with its own
- * animations before navigating away.
+ * Renders its own header with a Back button. Back behavior:
+ *   - In the celebration  -> dismiss the celebration, return to the player.
+ *   - In the player/setup -> call onBack() (parent resets reading state).
  */
 export const ReadingLessonScreen = ({
   lesson,
@@ -35,20 +35,14 @@ export const ReadingLessonScreen = ({
   onBack,
   streak,
 }) => {
-  // The result of the just-submitted lesson. When set, show the
-  // celebration instead of the player/setup.
   const [completion, setCompletion] = useState(null);
   const [celebrating, setCelebrating] = useState(false);
 
   const handleComplete = useCallback(
     async (result) => {
-      // Let the player finish its own state updates first.
       setCompletion(result);
       setCelebrating(true);
 
-      // Persist to the backend. App's handler does the API call and
-      // refreshes the streak; we keep its return value for the
-      // celebration summary.
       try {
         await onLessonComplete?.(result);
       } catch (err) {
@@ -65,23 +59,46 @@ export const ReadingLessonScreen = ({
   }, [onBack]);
 
   const handleReview = useCallback(() => {
-    // Collapse the celebration but keep the lesson mounted so the
-    // player can show its per-question review state.
     setCelebrating(false);
   }, []);
 
-  /* ---------- Celebration ---------- */
+  /* ---------- Back handler ---------- */
+  const handleBack = () => {
+    if (celebrating) {
+      // Inside the celebration: dismiss it, stay in the reading lesson.
+      setCelebrating(false);
+      return;
+    }
+    // Setup or player: hand control to the parent.
+    onBack?.();
+  };
 
+  /* ---------- Header ---------- */
+  const Header = (
+    <div className="dash-feature">
+      <div className="dash-feature__bar">
+        <button
+          type="button"
+          className="dash-feature__back"
+          onClick={handleBack}
+          aria-label="Back"
+        >
+          <MaterialIcon name="ArrowBack" size={16} color="var(--nb-black)" />
+          Back
+        </button>
+        <div className="dash-feature__title-wrap">
+          <span className="dash-feature__title">Reading Lesson</span>
+          <span className="dash-feature__subtitle">{language}</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  /* ---------- Celebration ---------- */
   if (celebrating && completion) {
     return (
-      <div
-        className="nb-container"
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <div>
+        {Header}
         <LessonCelebration
           result={completion}
           language={language}
@@ -94,39 +111,29 @@ export const ReadingLessonScreen = ({
   }
 
   /* ---------- Player / setup ---------- */
-
   return (
-    <div
-      className="nb-container"
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-
-      <div style={{ padding: 'var(--nb-space-lg)', flex: 1 }}>
-        <ReadingLesson
-          lesson={lesson}
-          language={language}
-          userId={userId}
-          topicId={topicId}
-          speakText={speakText}
-          stopSpeaking={stopSpeaking}
-          isSpeaking={isSpeaking}
-          isMuted={isMuted}
-          onToggleMute={onToggleMute}
-          activeSentenceIndex={activeSentenceIndex}
-          setActiveSentenceIndex={setActiveSentenceIndex}
-          onComplete={handleComplete}
-          onProgress={onLessonProgress}
-          onStart={onStartLesson}
-          onSelectPreviousLesson={onSelectPreviousLesson}
-          isGenerating={isLessonLoading}
-          generationError={lessonError}
-          onRetry={onRetryLesson}
-        />
-      </div>
+    <div>
+      {Header}
+      <ReadingLesson
+        lesson={lesson}
+        language={language}
+        userId={userId}
+        topicId={topicId}
+        speakText={speakText}
+        stopSpeaking={stopSpeaking}
+        isSpeaking={isSpeaking}
+        isMuted={isMuted}
+        onToggleMute={onToggleMute}
+        activeSentenceIndex={activeSentenceIndex}
+        setActiveSentenceIndex={setActiveSentenceIndex}
+        onComplete={handleComplete}
+        onProgress={onLessonProgress}
+        onStart={onStartLesson}
+        onSelectPreviousLesson={onSelectPreviousLesson}
+        isGenerating={isLessonLoading}
+        generationError={lessonError}
+        onRetry={onRetryLesson}
+      />
     </div>
   );
 };

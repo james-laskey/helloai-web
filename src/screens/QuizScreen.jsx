@@ -7,8 +7,14 @@ import { StreakBadge } from '../components/StreakBadge';
 import { learningApi } from '../services/learningApi';
 
 /**
- * Full quiz flow: setup -> loading -> player -> celebration -> back.
- * Reuses the reading lesson's celebration component.
+ * Full quiz flow: setup -> loading -> player -> celebration.
+ *
+ * Renders its own header with a Back button. Back behavior:
+ *   - In the celebration  -> dismiss it, stay on the quiz.
+ *   - In the player       -> return to the setup screen.
+ *   - In setup / loading  -> call onBack() (parent decides; on the
+ *                            dashboard it resets reading state and
+ *                            keeps the quiz feature mounted).
  */
 export const QuizScreen = ({
   language,
@@ -111,8 +117,6 @@ export const QuizScreen = ({
     setQuizData({
       questions: attempt.questions,
       attemptId: attempt.id,
-      // Older attempts may not carry these; the player doesn't need
-      // them, but keep them for parity with freshly generated quizzes.
       questionLanguage: config.questionLanguage,
       difficulty: config.difficulty,
       isReplay: true,
@@ -120,6 +124,12 @@ export const QuizScreen = ({
       correctCount: attempt.correctCount ?? null,
       totalQuestions: attempt.totalQuestions ?? attempt.questions.length,
     });
+  };
+
+  /* ---------- Dismiss the replay notice only ---------- */
+
+  const dismissReplayNotice = () => {
+    setQuizData((prev) => (prev ? { ...prev, isReplay: false } : prev));
   };
 
   /* ---------- Submit ---------- */
@@ -137,7 +147,6 @@ export const QuizScreen = ({
           timeSpent: payload.timeSpent,
         });
         onActivityComplete?.();
-        // Refresh the list so the new score shows up next time.
         fetchPrevious();
       } catch (err) {
         console.error('Error submitting quiz:', err);
@@ -160,19 +169,51 @@ export const QuizScreen = ({
     onBack?.();
   };
 
+  /* ---------- Back handler ---------- */
+
+  const handleBack = () => {
+    if (celebration) {
+      setCelebration(null);
+      return;
+    }
+    if (quizData) {
+      setQuizData(null);
+      return;
+    }
+    onBack?.();
+  };
+
+  /* ---------- Header ---------- */
+
+  const Header = (
+    <div className="dash-feature">
+      <div className="dash-feature__bar">
+        <button
+          type="button"
+          className="dash-feature__back"
+          onClick={handleBack}
+          aria-label="Back"
+        >
+          <MaterialIcon name="ArrowBack" size={16} color="var(--nb-black)" />
+          Back
+        </button>
+        <div className="dash-feature__title-wrap">
+          <span className="dash-feature__title">Quiz</span>
+          <span className="dash-feature__subtitle">
+            {language}
+            {topicName ? ` · ${topicName}` : ''}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+
   /* ---------- Celebration ---------- */
 
   if (celebration) {
     return (
-      <div
-        className="nb-container"
-        style={{
-          background: 'var(--nb-purple)',
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <div>
+        {Header}
         <LessonCelebration
           result={celebration}
           language={language}
@@ -190,17 +231,10 @@ export const QuizScreen = ({
   /* ---------- Header + body ---------- */
 
   return (
-    <div
-      className="nb-container"
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
+    <div>
+      {Header}
 
-
-      <div style={{ padding: 'var(--nb-space-lg)', flex: 1 }}>
+      <div style={{ paddingTop: 'var(--nb-space-md)' }}>
         {!quizData && !generating && (
           <QuizSetup
             language={language}
@@ -241,19 +275,47 @@ export const QuizScreen = ({
                 style={{
                   background: 'var(--nb-yellow)',
                   padding: 'var(--nb-space-md)',
+                  position: 'relative',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: 'var(--nb-space-md)',
                 }}
               >
-                <p style={{ margin: 0, fontWeight: 600 }}>
-                  Replaying a previous quiz.{' '}
-                  {quizData.score !== null
-                    ? `Last score: ${quizData.score}%.`
-                    : 'It was not completed.'}
-                </p>
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ margin: 0, fontWeight: 600 }}>
+                    Replaying a previous quiz.{' '}
+                    {quizData.score !== null
+                      ? `Last score: ${quizData.score}%.`
+                      : 'It was not completed.'}
+                  </p>
+                  <button
+                    className="nb-button nb-mt-sm"
+                    onClick={() => setQuizData(null)}
+                  >
+                    Choose a different quiz
+                  </button>
+                </div>
+
                 <button
-                  className="nb-button nb-mt-sm"
-                  onClick={() => setQuizData(null)}
+                  type="button"
+                  onClick={dismissReplayNotice}
+                  aria-label="Dismiss replay notice"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 28,
+                    height: 28,
+                    padding: 0,
+                    background: 'var(--nb-white)',
+                    border: '2px solid var(--nb-black)',
+                    borderRadius: 'var(--nb-radius-sm)',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                  }}
                 >
-                  Choose a different quiz
+                  <MaterialIcon name="Close" size={16} color="var(--nb-black)" />
                 </button>
               </div>
             )}

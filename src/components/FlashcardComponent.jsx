@@ -201,9 +201,20 @@ export const FlashcardComponent = ({
                 >
                   Example:
                 </div>
-                <p style={{ fontStyle: 'italic', margin: 0 }}>
-                  "{currentCard.example}"
-                </p>
+                <p style={{ fontStyle: 'italic', margin: 0 }}>"{currentCard.example}"</p>
+                  {currentCard.exampleRomanization && (
+                    <p
+                      style={{
+                        fontStyle: 'italic',
+                        margin: '4px 0 0',
+                        color: '#999',
+                        fontSize: '0.85rem',
+                        fontWeight: 400,
+                      }}
+                    >
+                      {currentCard.exampleRomanization}
+                    </p>
+                  )}
               </div>
             )}
           </>

@@ -4,6 +4,11 @@ import { FortuneSetup } from './FortuneSetup';
 import { FortunePlay } from './FortunePlay';
 import { FortuneGameOver } from './FortuneGameOver';
 
+/* Shared background for the whole fortune feature. Lives in
+   /public/images/ninja/bg.png. Change this one constant to swap the
+   image used by both the setup and play screens. */
+const FORTUNE_BG = '/images/ninja/bg.png';
+
 export const FortuneGame = ({
   userId,
   language,
@@ -34,9 +39,6 @@ export const FortuneGame = ({
     fetchPreviousGames();
   }, [fetchPreviousGames]);
 
-  /* ---------- Reset ---------- */
-  /* Clears any in-progress game state. Used by "Back" from playing and
-     by "Restart" from results. */
   const resetToSetup = () => {
     setGameId(null);
     setPhrases([]);
@@ -45,19 +47,9 @@ export const FortuneGame = ({
     setPhase('setup');
   };
 
-  /* ---------- Back navigation ---------- */
-  /* One Back button in the feature. Behavior depends on the phase:
-       setup    -> exit the feature (parent decides).
-       playing  -> abandon the game and return to setup.
-       results  -> return to setup.
-     There is no separate "resume mid-play" path because the play
-     screen owns its state while mounted; leaving means starting over.
-  */
   const handleBack = () => {
     if (phase === 'playing' || phase === 'results') {
       resetToSetup();
-      // Refresh the previous-games list so any abandoned/completed
-      // attempts that made it to the server appear next time.
       fetchPreviousGames();
       return;
     }
@@ -146,6 +138,7 @@ export const FortuneGame = ({
         isGenerating={isGenerating}
         error={error}
         previousGames={previousGames}
+        backgroundImage={FORTUNE_BG}
       />
     );
   }
@@ -157,6 +150,7 @@ export const FortuneGame = ({
         language={language}
         onComplete={handlePlayComplete}
         onExit={handleBack}
+        backgroundImage={FORTUNE_BG}
       />
     );
   }

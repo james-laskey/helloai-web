@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { MaterialIcon } from '../landing-page/icons';
 import { FortuneBoard } from './FortuneBoard';
-import { FortuneTierPicker } from './FortuneTierPicker';
+import { FortuneWheel } from './FortuneWheel';
 import {
   STARTING_SCORE,
   SOLVE_BONUS_PER_LETTER,
@@ -14,12 +14,15 @@ export const FortunePlay = ({
   language,
   onComplete,
   onExit,
+  backgroundImage,
 }) => {
   const [score, setScore] = useState(STARTING_SCORE);
   const [highScore, setHighScore] = useState(STARTING_SCORE);
   const [puzzleIndex, setPuzzleIndex] = useState(0);
   const [guessedLetters, setGuessedLetters] = useState(new Set());
-  const [revealed, setRevealed] = useState(() => buildRevealed(phrases[0].text, new Set()));
+  const [revealed, setRevealed] = useState(() =>
+    buildRevealed(phrases[0].text, new Set())
+  );
   const [selectedTier, setSelectedTier] = useState(null);
   const [input, setInput] = useState('');
   const [feedback, setFeedback] = useState(null);
@@ -27,27 +30,17 @@ export const FortunePlay = ({
   const [correctGuesses, setCorrectGuesses] = useState(0);
   const [wrongGuesses, setWrongGuesses] = useState(0);
   const [guessCount, setGuessCount] = useState(0);
-  const [phase, setPhase] = useState('playing'); // playing | puzzle-solved | game-over | complete
+  const [phase, setPhase] = useState('playing');
   const [startedAt] = useState(() => Date.now());
 
+  /* Reveal-batch: which positions in the current phrase were just
+     flipped from 0 to 1 on the most recent guess. Passed to the board
+     so it can stagger + color-shift the animation for those cells
+     only. The `id` counter guarantees a new batch re-triggers even if
+     the same indices appear twice. */
+  const [revealBatch, setRevealBatch] = useState({ id: 0, indices: [] });
+
   const currentPhrase = phrases[puzzleIndex];
-
-  /* ---------- Derived state ---------- */
-
-  const totalLetters = useMemo(
-    () => currentPhrase.text.replace(/[^a-z]/g, '').length,
-    [currentPhrase]
-  );
-
-  const revealedLetters = useMemo(
-    () => revealed.reduce((sum, v) => sum + v, 0),
-    [revealed]
-  );
-
-  const remainingLetters = totalLetters - currentPhrase.text.split('')
-    .filter((c, i) => /[a-z]/.test(c) && revealed[i] === 1).length;
-
-  const allRevealed = revealed.every((v) => v === 1);
 
   const tierReady = selectedTier !== null;
 
@@ -60,7 +53,6 @@ export const FortunePlay = ({
 
     if (!raw) return;
 
-    // Only single letters are accepted.
     if (raw.length !== 1 || !/[a-z]/.test(raw)) {
       setFeedback({ type: 'error', text: 'Enter a single letter.' });
       return;
@@ -72,12 +64,11 @@ export const FortunePlay = ({
     }
 
     if (!tierReady) {
-      setFeedback({ type: 'error', text: 'Pick a score tier first.' });
+      setFeedback({ type: 'error', text: 'Spin the wheel first.' });
       return;
     }
 
     const letter = raw;
-    const isVowel = VOWELS.has(letter);
     const baseTier = selectedTier;
     const value = tierValue(baseTier, letter);
     const occurrences = currentPhrase.text
@@ -89,13 +80,23 @@ export const FortunePlay = ({
     setSelectedTier(null);
 
     if (occurrences > 0) {
-      // Correct guess: reveal letters, add points.
       const newRevealed = revealed.slice();
+      const flipped = [];
       for (let i = 0; i < currentPhrase.text.length; i++) {
-        if (currentPhrase.text[i] === letter) newRevealed[i] = 1;
+        if (currentPhrase.text[i] === letter) {
+          if (newRevealed[i] !== 1) flipped.push(i);
+          newRevealed[i] = 1;
+        }
       }
+
       setRevealed(newRevealed);
       setCorrectGuesses((c) => c + 1);
+
+      /* Hand the board the positions that should animate. */
+      setRevealBatch((prev) => ({
+        id: prev.id + 1,
+        indices: flipped,
+      }));
 
       const gained = value * occurrences;
       setScore((s) => {
@@ -108,35 +109,27 @@ export const FortunePlay = ({
         text: `"${letter.toUpperCase()}" appears ${occurrences}×. +${gained} points.`,
       });
 
-      // Check if the puzzle is now solved.
       const solved = newRevealed.every((v) => v === 1);
       if (solved) {
         handlePuzzleSolved(newRevealed);
       }
     } else {
-      // Wrong guess: lose points. Vowels still get the halved penalty
-      // so the risk matches the reward.
       setWrongGuesses((c) => c + 1);
       setScore((s) => {
         const next = s - value;
         if (next < 0) {
-          // Game over.
           setTimeout(() => handleGameOver(next), 0);
         }
         return next;
       });
       setFeedback({
         type: 'wrong',
-        text: `No "${letter.toUpperCase()}" in the phrase. -${value} points.`,
+        text: `No "${letter.toUpperCase()}" in the phrase. −${value} points.`,
       });
     }
   };
 
-  const handlePuzzleSolved = (finalRevealed) => {
-    // Award a solve bonus.
-    const bonus = remainingLetters > 0
-      ? Math.max(0, finalRevealed.filter((v) => v === 1).length) * 50
-      : 500;
+  const handlePuzzleSolved = () => {
     setScore((s) => {
       const next = s + SOLVE_BONUS_PER_LETTER * 1;
       setHighScore((hs) => Math.max(hs, next));
@@ -158,6 +151,7 @@ export const FortunePlay = ({
     setSelectedTier(null);
     setInput('');
     setFeedback(null);
+    setRevealBatch({ id: 0, indices: [] });
     setPhase('playing');
   };
 
@@ -207,157 +201,221 @@ export const FortunePlay = ({
   /* ---------- Render ---------- */
 
   return (
-    <div className="nb-flex nb-flex-col nb-gap-lg">
-      {/* Status bar */}
-      <div className="nb-card" style={{ background: 'var(--nb-white)' }}>
-        <div className="nb-flex nb-flex-between nb-flex-center nb-flex-wrap nb-gap-md">
-          <div>
-            <div className="nb-text-xs nb-text-muted">Score</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>
-              {score}
-            </div>
-          </div>
-          <div>
-            <div className="nb-text-xs nb-text-muted">High Score</div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>
-              {Math.max(highScore, score)}
-            </div>
-          </div>
-          <div>
-            <div className="nb-text-xs nb-text-muted">Puzzle</div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>
-              {puzzleIndex + 1} / {phrases.length}
-            </div>
-          </div>
-          <div>
-            <div className="nb-text-xs nb-text-muted">Category</div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>
-              {currentPhrase.category}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Board */}
-      <FortuneBoard phrase={currentPhrase.text} revealed={revealed} />
-
-      {/* Feedback */}
-      {feedback && (
+    <div
+      style={{
+        position: 'relative',
+        width: '100%',
+        minHeight: '100%',
+        overflow: 'hidden',
+      }}
+    >
+      {backgroundImage && (
         <div
-          className="nb-card"
+          aria-hidden="true"
           style={{
-            background:
-              feedback.type === 'correct'
-                ? 'var(--nb-lime)'
-                : feedback.type === 'wrong'
-                ? 'var(--nb-red)'
-                : 'var(--nb-orange)',
-            color: feedback.type === 'wrong' ? 'var(--nb-white)' : 'var(--nb-black)',
-            padding: 'var(--nb-space-md)',
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: `url(${backgroundImage})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            zIndex: 0,
           }}
-        >
-          <p style={{ margin: 0, fontWeight: 700 }}>{feedback.text}</p>
-        </div>
-      )}
-
-      {/* Tier picker */}
-      {phase === 'playing' && (
-        <FortuneTierPicker
-          selectedTier={selectedTier}
-          onSelectTier={setSelectedTier}
-          disabled={false}
-          currentScore={score}
         />
       )}
 
-      {/* Input */}
-      {phase === 'playing' && tierReady && (
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.35)',
+          zIndex: 1,
+        }}
+      />
+
+      <div
+        className="nb-flex nb-flex-col nb-gap-lg"
+        style={{
+          position: 'relative',
+          zIndex: 2,
+          padding: 'var(--nb-space-lg)',
+          paddingBottom: 'calc(var(--nb-space-lg) + 200px)',
+          maxWidth: '960px',
+          margin: '0 auto',
+        }}
+      >
         <div className="nb-card" style={{ background: 'var(--nb-white)' }}>
-          <label className="nb-label">Guess a letter</label>
-          <div className="nb-flex nb-gap-sm">
-            <input
-              className="nb-input"
-              value={input}
-              onChange={(e) => setInput(e.target.value.slice(0, 1))}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') submitGuess();
-              }}
-              placeholder="A-Z"
-              autoFocus
-              style={{
-                textTransform: 'uppercase',
-                textAlign: 'center',
-                fontSize: '1.25rem',
-                letterSpacing: '2px',
-              }}
-            />
+          <div className="nb-flex nb-flex-between nb-flex-center nb-flex-wrap nb-gap-md">
+            <div>
+              <div className="nb-text-xs nb-text-muted">Score</div>
+              <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{score}</div>
+            </div>
+            <div>
+              <div className="nb-text-xs nb-text-muted">High Score</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>
+                {Math.max(highScore, score)}
+              </div>
+            </div>
+            <div>
+              <div className="nb-text-xs nb-text-muted">Puzzle</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>
+                {puzzleIndex + 1} / {phrases.length}
+              </div>
+            </div>
+            <div>
+              <div className="nb-text-xs nb-text-muted">Category</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>
+                {currentPhrase.category}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Board — pass the batch so newly flipped cells animate */}
+        <FortuneBoard
+          phrase={currentPhrase.text}
+          revealed={revealed}
+          revealBatch={revealBatch}
+        />
+
+        {feedback && (
+          <div
+            className="nb-card"
+            style={{
+              background:
+                feedback.type === 'correct'
+                  ? 'var(--nb-lime)'
+                  : feedback.type === 'wrong'
+                  ? 'var(--nb-red)'
+                  : 'var(--nb-orange)',
+              color:
+                feedback.type === 'wrong'
+                  ? 'var(--nb-white)'
+                  : 'var(--nb-black)',
+              padding: 'var(--nb-space-md)',
+            }}
+          >
+            <p style={{ margin: 0, fontWeight: 700 }}>{feedback.text}</p>
+          </div>
+        )}
+
+        {phase === 'playing' && tierReady && (
+          <div className="nb-card" style={{ background: 'var(--nb-white)' }}>
+            <label className="nb-label">Guess a letter</label>
+            <div className="nb-flex nb-gap-sm">
+              <input
+                className="nb-input"
+                value={input}
+                onChange={(e) => setInput(e.target.value.slice(0, 1))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') submitGuess();
+                }}
+                placeholder="A-Z"
+                autoFocus
+                style={{
+                  textTransform: 'uppercase',
+                  textAlign: 'center',
+                  fontSize: '1.25rem',
+                  letterSpacing: '2px',
+                }}
+              />
+              <button
+                className="nb-button nb-button-primary"
+                onClick={submitGuess}
+                disabled={!input.trim()}
+              >
+                <MaterialIcon name="Send" size={18} color="var(--nb-white)" />
+                Guess
+              </button>
+            </div>
+            <p
+              className="nb-text-xs nb-text-muted nb-mt-sm"
+              style={{ margin: 0 }}
+            >
+              Guessing with tier <strong>{selectedTier}</strong>. Vowels
+              cost half. You must guess before you can spin again.
+            </p>
+          </div>
+        )}
+
+        {phase === 'playing' && !tierReady && (
+          <div
+            className="nb-card"
+            style={{
+              background: 'var(--nb-yellow)',
+              padding: 'var(--nb-space-md)',
+              textAlign: 'center',
+            }}
+          >
+            <p style={{ margin: 0, fontWeight: 700 }}>
+              Spin the wheel to lock in a tier, then guess a letter.
+            </p>
+          </div>
+        )}
+
+        {phase === 'puzzle-solved' && (
+          <div className="nb-card" style={{ background: 'var(--nb-lime)' }}>
+            <p className="nb-mb-md" style={{ margin: 0, fontWeight: 700 }}>
+              Puzzle solved! +{SOLVE_BONUS_PER_LETTER} bonus points.
+            </p>
             <button
               className="nb-button nb-button-primary"
-              onClick={submitGuess}
-              disabled={!input.trim()}
+              onClick={nextPuzzle}
             >
-              <MaterialIcon name="Send" size={18} color="var(--nb-white)" />
-              Guess
+              Next Puzzle
             </button>
           </div>
-          {selectedTier && (
-            <p className="nb-text-xs nb-text-muted nb-mt-sm" style={{ margin: 0 }}>
-              Guessing with tier <strong>{selectedTier}</strong>. Vowels cost
-              half.
-            </p>
-          )}
-        </div>
-      )}
+        )}
 
-      {/* Puzzle solved */}
-      {phase === 'puzzle-solved' && (
-        <div className="nb-card" style={{ background: 'var(--nb-lime)' }}>
-          <p className="nb-mb-md" style={{ margin: 0, fontWeight: 700 }}>
-            Puzzle solved! +{SOLVE_BONUS_PER_LETTER} bonus points.
-          </p>
-          <button className="nb-button nb-button-primary" onClick={nextPuzzle}>
-            Next Puzzle
+        {guessedLetters.size > 0 && (
+          <div className="nb-card" style={{ background: 'var(--nb-gray)' }}>
+            <div className="nb-text-xs nb-text-muted nb-mb-sm">
+              Guessed letters
+            </div>
+            <div className="nb-flex nb-gap-sm nb-flex-wrap">
+              {Array.from(guessedLetters)
+                .sort()
+                .map((l) => (
+                  <span
+                    key={l}
+                    className="nb-badge"
+                    style={{
+                      background: currentPhrase.text.includes(l)
+                        ? 'var(--nb-lime)'
+                        : 'var(--nb-red)',
+                      color: currentPhrase.text.includes(l)
+                        ? 'var(--nb-black)'
+                        : 'var(--nb-white)',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {l}
+                  </span>
+                ))}
+            </div>
+          </div>
+        )}
+
+        <div className="nb-flex nb-gap-sm nb-flex-center">
+          <button className="nb-button" onClick={onExit}>
+            Quit
+          </button>
+          <button
+            className="nb-button nb-button-danger"
+            onClick={handleGiveUp}
+          >
+            Give Up
           </button>
         </div>
-      )}
-
-      {/* Guessed letters */}
-      {guessedLetters.size > 0 && (
-        <div className="nb-card" style={{ background: 'var(--nb-gray)' }}>
-          <div className="nb-text-xs nb-text-muted nb-mb-sm">Guessed letters</div>
-          <div className="nb-flex nb-gap-sm nb-flex-wrap">
-            {Array.from(guessedLetters)
-              .sort()
-              .map((l) => (
-                <span
-                  key={l}
-                  className="nb-badge"
-                  style={{
-                    background: currentPhrase.text.includes(l)
-                      ? 'var(--nb-lime)'
-                      : 'var(--nb-red)',
-                    color: currentPhrase.text.includes(l)
-                      ? 'var(--nb-black)'
-                      : 'var(--nb-white)',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  {l}
-                </span>
-              ))}
-          </div>
-        </div>
-      )}
-
-      {/* Controls */}
-      <div className="nb-flex nb-gap-sm nb-flex-center">
-        <button className="nb-button" onClick={onExit}>
-          Quit
-        </button>
-        <button className="nb-button nb-button-danger" onClick={handleGiveUp}>
-          Give Up
-        </button>
       </div>
+
+      <FortuneWheel
+        selectedTier={selectedTier}
+        onSelectTier={setSelectedTier}
+        disabled={phase !== 'playing'}
+        currentScore={score}
+      />
     </div>
   );
 };

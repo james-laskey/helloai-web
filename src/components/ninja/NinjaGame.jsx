@@ -5,6 +5,11 @@ import { NinjaPlay } from './NinjaPlay';
 import { NinjaGameOver } from './NinjaGameOver';
 import { DEFAULT_TIMER_SECONDS } from './constants';
 
+/* Single source of truth for the ninja background. Lives in
+   /public/images/ninja/bg.png. Used by both the setup and play
+   screens so the whole feature shares one backdrop. */
+const NINJA_BG = '/images/ninja/bg.png';
+
 export const NinjaGame = ({
   userId,
   language,
@@ -49,15 +54,9 @@ export const NinjaGame = ({
   };
 
   /* ---------- Back navigation ---------- */
-  /* setup    -> exit the feature (parent decides).
-     playing  -> abandon the game and return to setup.
-     results  -> return to setup.
-  */
   const handleBack = () => {
     if (phase === 'playing' || phase === 'results') {
       resetToSetup();
-      // Refresh so an abandoned attempt (if the server recorded one)
-      // shows up in the previous-games list on setup.
       fetchPreviousGames();
       return;
     }
@@ -170,21 +169,22 @@ export const NinjaGame = ({
         isGenerating={isGenerating}
         error={error}
         previousGames={previousGames}
+        backgroundImage={NINJA_BG}
       />
     );
   }
 
   if (phase === 'playing') {
+    /* Fill the feature view. No border or shadow — the dashboard's
+       .dash-view owns the framing now. The wrapper just ensures the
+       canvas has a real height to draw into and doesn't collapse. */
     return (
       <div
         style={{
           position: 'relative',
           width: '100%',
-          height: 'calc(100vh - 120px)',
-          minHeight: '500px',
-          border: 'var(--nb-border)',
-          boxShadow: 'var(--nb-shadow)',
-          overflow: 'hidden',
+          height: '100%',
+          minHeight: '600px',
         }}
       >
         <NinjaPlay
@@ -193,6 +193,7 @@ export const NinjaGame = ({
           timerSeconds={timerSeconds}
           onComplete={handlePlayComplete}
           onExit={handleBack}
+          backgroundImage={NINJA_BG}
         />
       </div>
     );

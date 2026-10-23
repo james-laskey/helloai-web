@@ -13,8 +13,10 @@ const WORD_FONT = '700 28px system-ui, sans-serif';
 
 const SPAWN_GAP_MS = 1400;
 
+/* Slower descent than before (was 550). Rise stays fast so the throw
+   reads as snappy, and the return to the ground is gentle. */
 const GRAVITY_UP   = 2000;  // px / s²
-const GRAVITY_DOWN =  550;  // px / s²
+const GRAVITY_DOWN =  380;  // px / s²
 
 const MIN_APEX_HEIGHT = 0.35;
 const MAX_APEX_HEIGHT = 0.85;
@@ -28,7 +30,7 @@ export const NinjaPlay = ({
   timerSeconds,
   onComplete,
   onExit,
-  backgroundImage = 'ninja-bg.png',
+  backgroundImage = '/images/ninja/bg.png',
 }) => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -51,7 +53,6 @@ export const NinjaPlay = ({
     startTime: 0,
     rafId: null,
     spawnTimers: [],
-    /* New: flash timing guards */
     flashTimers: [],
     roundReady: false,
     advancing: false,
@@ -189,13 +190,9 @@ export const NinjaPlay = ({
 
   /* ---------- Question flash ---------- */
 
-  /* Schedules the flash, then the spawn. All timers are stored on
-     `s.flashTimers` so they can be cancelled on unmount or when a
-     new round starts. `onDone` fires after the flash finishes. */
   const showQuestionFlash = (hint, topic, onDone) => {
     const s = stateRef.current;
 
-    // Cancel any flash timers still in flight from a previous round.
     s.flashTimers.forEach((id) => clearTimeout(id));
     s.flashTimers = [];
 
@@ -238,8 +235,6 @@ export const NinjaPlay = ({
     if (!q) return;
 
     s.advancing = false;
-    /* Until the flash finishes and the first word has been queued,
-       this round is NOT "in progress" from the loop's perspective. */
     s.roundReady = false;
 
     const items = [
@@ -254,8 +249,6 @@ export const NinjaPlay = ({
     const spawn = () => {
       if (!s.running || s.questionIndex !== qIndex) return;
 
-      /* Now the round has actually begun. Only from this point can the
-         loop legitimately advance it once everything is resolved. */
       s.roundReady = true;
 
       items.forEach((item, i) => {
@@ -389,9 +382,6 @@ export const NinjaPlay = ({
 
   /* ---------- Transitions ---------- */
 
-  /* Only advance when a round is actually in progress (roundReady)
-     and every spawned word has been resolved. An empty words array
-     before the flash finishes will not trigger advancement. */
   const maybeAdvanceIfAllResolved = () => {
     const s = stateRef.current;
     if (!s.running || s.advancing) return;
@@ -544,10 +534,6 @@ export const NinjaPlay = ({
       drawWord(ctx, w);
     }
 
-    /* Only check advancement on frames where a word was just resolved.
-       This is the moment `s.words` is guaranteed non-empty and the
-       "every resolved" test is meaningful. It also removes the class
-       of bug where the loop trivially advances an empty round. */
     if (justResolvedSomething) {
       maybeAdvanceIfAllResolved();
     }
@@ -598,6 +584,7 @@ export const NinjaPlay = ({
       style={{
         position: 'relative',
         width: '100%',
+        /* Fill the parent — the parent decides the height. */
         height: '100%',
         minHeight: '500px',
       }}
